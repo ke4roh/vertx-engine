@@ -1,7 +1,7 @@
 package com.redhat.vertx.engine;
 
-import javax.enterprise.context.ApplicationScoped;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 
 public class Engine {
@@ -11,7 +11,7 @@ public class Engine {
         this.pipeline = pipeline;
     }
 
-    public CompletableFuture<String> execute(String pipeline) {
+    public CompletionStage<String> execute(String pipeline) {
         return CompletableFuture.completedFuture("Woohoo!" + pipeline);
     }
 }
