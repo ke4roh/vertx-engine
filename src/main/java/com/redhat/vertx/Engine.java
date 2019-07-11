@@ -1,9 +1,12 @@
-package com.redhat.vertx.engine;
+package com.redhat.vertx;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
-
+/**
+ * Entrypoint for execution of a particular pipeline.
+ *
+ */
 public class Engine {
     private String pipeline;
 

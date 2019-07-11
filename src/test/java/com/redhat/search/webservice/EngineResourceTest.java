@@ -1,4 +1,4 @@
-package com.redhat.vertx.engine;
+package com.redhat.search.webservice;
 
 import io.quarkus.test.junit.QuarkusTest;
 import org.apache.http.entity.ContentType;

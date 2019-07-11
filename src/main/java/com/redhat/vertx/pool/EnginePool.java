@@ -1,4 +1,6 @@
-package com.redhat.vertx.engine;
+package com.redhat.vertx.pool;
+
+import com.redhat.vertx.Engine;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,6 +16,7 @@ import javax.inject.Inject;
  */
 @ApplicationScoped
 public class EnginePool {
+    // make this expire things or something - fancier
     PipelineResolver resolver;
     Map<String, Engine> map;
 

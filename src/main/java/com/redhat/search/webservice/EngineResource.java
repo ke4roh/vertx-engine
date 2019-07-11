@@ -1,4 +1,6 @@
-package com.redhat.vertx.engine;
+package com.redhat.search.webservice;
+
+import com.redhat.vertx.pool.EnginePool;
 
 import java.util.concurrent.CompletionStage;
 
@@ -28,7 +30,9 @@ public class EngineResource {
     @Path("/{pipeline}")
     public CompletionStage<String> greeting(@PathParam("pipeline") String pipeline, String body) {
         return enginePool.getEngineByPipelineName(pipeline)
-                .thenComposeAsync(engine -> engine.execute(pipeline)
-                .thenApplyAsync(s -> s + body));
+                .thenComposeAsync(
+                        engine -> engine.execute(pipeline)
+                                  .thenApplyAsync(s -> s + body)
+                );
     }
 }

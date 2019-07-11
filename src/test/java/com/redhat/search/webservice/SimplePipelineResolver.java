@@ -1,4 +1,6 @@
-package com.redhat.vertx.engine;
+package com.redhat.search.webservice;
+
+import com.redhat.vertx.pool.PipelineResolver;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
