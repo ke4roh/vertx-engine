@@ -1,12 +1,15 @@
-package com.redhat.vertx.pipeline;
+package com.redhat.vertx.pipeline.step;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
+import com.redhat.vertx.pipeline.ExecutionData;
+import com.redhat.vertx.pipeline.Step;
+import com.redhat.vertx.pipeline.StepReturnValue;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
-public class HelloWorldStep implements Step<String> {
+public class HelloWorldStep implements Step {
 
     @Override
     public void init(JsonObject config, Future<Void> future) {
@@ -14,12 +17,12 @@ public class HelloWorldStep implements Step<String> {
     }
 
     @Override
-    public boolean isReady(JsonObject doc) {
+    public boolean isReady(ExecutionData doc) {
         return true;
     }
 
     @Override
-    public CompletionStage<String> process(JsonObject document, Future<String> future) {
-        return CompletableFuture.completedFuture("hello, Jason!");
+    public CompletionStage<StepReturnValue> process(ExecutionData data) {
+        return CompletableFuture.completedFuture(new StepReturnValue(data.getId(), "hello, " + data.getData()));
     }
 }
