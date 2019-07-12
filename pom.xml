@@ -34,6 +34,9 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-vertx</artifactId>
     </dependency>
+    <!-- TODO ascii doclet -->
+    <!-- TODO generate javadoc -->
+    <!-- TODO divorce from Quarkus (and how do we bring it back in?) -->
     <!-- Testing -->
     <dependency>
       <groupId>io.quarkus</groupId>

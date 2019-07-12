@@ -2,6 +2,7 @@ package com.redhat.vertx.pipeline;
 
 import java.util.UUID;
 
+// TODO Execution Data should be a vertx JsonObject
 public class ExecutionData {
     UUID id;
     String data;

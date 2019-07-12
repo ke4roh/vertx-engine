@@ -9,9 +9,14 @@ import java.util.stream.Collectors;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
+// TODO make this a Step
 public class Section {
     String name;
     List<Step> steps;
+
+    public Section(JsonArray sectionDef) {
+        // TODO this is a Section with a default name and default behavior
+    }
 
     public Section(JsonObject sectionDef) {
         this.name = sectionDef.getString("section");

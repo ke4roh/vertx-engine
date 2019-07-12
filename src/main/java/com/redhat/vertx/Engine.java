@@ -4,16 +4,18 @@ import java.util.concurrent.CompletionStage;
 
 import com.redhat.vertx.pipeline.ExecutionData;
 import com.redhat.vertx.pipeline.Pipeline;
+import com.redhat.vertx.pipeline.Section;
+import io.vertx.core.json.JsonArray;
 
 /**
  * Entrypoint for execution of a particular pipeline.
  *
  */
 public class Engine {
-    private Pipeline pipeline;
+    private Section pipeline;
 
     public Engine(String pipelineDef) {
-        this.pipeline = new Pipeline(pipelineDef);
+        this.pipeline = new Section( new JsonArray(pipelineDef));
     }
 
     public CompletionStage<String> execute(String executionData) {

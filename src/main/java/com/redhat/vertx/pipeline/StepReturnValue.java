@@ -2,6 +2,7 @@ package com.redhat.vertx.pipeline;
 
 import java.util.UUID;
 
+// TODO assign the step run ID early, make sure the step knows what it is.
 public class StepReturnValue {
     UUID stepRunId;
     UUID pipelineRunId;

@@ -16,7 +16,6 @@ import io.vertx.core.json.JsonObject;
  *     <li>executing the work itself</li>
  * </ul>
  *
- * @param <ReturnType>
  */
 public interface Step {
     /**
@@ -29,7 +28,7 @@ public interface Step {
 
     /**
      * Return true if, upon examination of the environment, it is time to execute this step
-     * @param doc
+     * @param data ExecutionData - environment prepared for this step
      * @return
      */
     public boolean isReady(ExecutionData data);
@@ -41,6 +40,5 @@ public interface Step {
      * a JsonArray, JsonObject, etc.
      */
     public CompletionStage<StepReturnValue> process(ExecutionData document);
-
 
 }
