@@ -1,6 +1,8 @@
-package com.redhat.vertx.steps;
+package com.redhat.vertx.pipeline;
 
-import com.redhat.vertx.steps.Step;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
@@ -17,7 +19,7 @@ public class HelloWorldStep implements Step<String> {
     }
 
     @Override
-    public void process(JsonObject document, Future<String> future) {
-        return new Future("hello, Jason!");
+    public CompletionStage<String> process(JsonObject document, Future<String> future) {
+        return CompletableFuture.completedFuture("hello, Jason!");
     }
 }
