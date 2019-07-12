@@ -1,0 +1,16 @@
+[
+  {
+    "section": "enrich",
+    "steps": [
+      {
+        "name":"hello",
+        "class":"com.redhat.vertx.pipeline.step.HelloWorldStep",
+        "vars":
+        {
+          "name":"John"
+        },
+        "register": ["greetings"]
+      }
+    ]
+  }
+]

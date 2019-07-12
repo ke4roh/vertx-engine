@@ -1,7 +1,9 @@
-package com.redhat.vertx.steps;
+package com.redhat.vertx.pipeline;
 
 
 // Java Concurrent or vert.x rx?
+import java.util.concurrent.CompletionStage;
+
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
@@ -16,7 +18,7 @@ import io.vertx.core.json.JsonObject;
  *
  * @param <ReturnType>
  */
-public interface Step<ReturnType extends Object> {
+public interface Step {
     /**
      * Configure this step (static configuration upon parsing the pipeline the first time)
      *
@@ -30,7 +32,7 @@ public interface Step<ReturnType extends Object> {
      * @param doc
      * @return
      */
-    public boolean isReady(JsonObject doc);
+    public boolean isReady(ExecutionData data);
 
     /**
      *
@@ -38,7 +40,7 @@ public interface Step<ReturnType extends Object> {
      * @return The (Json-compatible) object to be persisted as a memento of this execution.  It may be a string, int,
      * a JsonArray, JsonObject, etc.
      */
-    public void process(JsonObject document, Future<ReturnType> future);
+    public CompletionStage<StepReturnValue> process(ExecutionData document);
 
 
 }

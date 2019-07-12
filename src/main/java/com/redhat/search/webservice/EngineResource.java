@@ -1,7 +1,5 @@
 package com.redhat.search.webservice;
 
-import com.redhat.vertx.pool.EnginePool;
-
 import java.util.concurrent.CompletionStage;
 
 import javax.inject.Inject;
@@ -11,6 +9,8 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+
+import com.redhat.vertx.pool.EnginePool;
 
 /**
  * This class is responsible for managing the getEngineByPipelineName instance, which pipeline it runs, and translation of a
