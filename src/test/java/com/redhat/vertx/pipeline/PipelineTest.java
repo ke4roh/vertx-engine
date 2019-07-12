@@ -7,15 +7,12 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 
 import com.redhat.ResourceUtils;
-import io.quarkus.test.junit.QuarkusTest;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@QuarkusTest
 public class PipelineTest {
 
     @Test

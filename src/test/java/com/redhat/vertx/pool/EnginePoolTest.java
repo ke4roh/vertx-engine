@@ -1,17 +1,15 @@
 package com.redhat.vertx.pool;
 
-import com.redhat.vertx.Engine;
-import io.quarkus.test.junit.QuarkusTest;
-import org.junit.jupiter.api.Test;
-
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 
-import static org.junit.jupiter.api.Assertions.*;
+import com.redhat.vertx.Engine;
+import org.junit.jupiter.api.Test;
 
-@QuarkusTest
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 public class EnginePoolTest {
 
     @Test

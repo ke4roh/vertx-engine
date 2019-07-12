@@ -1,26 +1,21 @@
 package com.redhat.vertx.pool;
 
-import com.redhat.vertx.Engine;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
+import com.redhat.vertx.Engine;
 
 /**
  * This class is responsible for instantiating enginePool and making them available for execution of their
  * individual pipelines as needed.
  */
-@ApplicationScoped
 public class EnginePool {
     // make this expire things or something - fancier
     PipelineResolver resolver;
     Map<String, Engine> map;
 
-    @Inject
     public EnginePool(PipelineResolver resolver) {
         this.resolver = resolver;
         this.map = new HashMap<>();

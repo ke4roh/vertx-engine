@@ -8,11 +8,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class ResourceUtils {
-    static Logger log = LoggerFactory.getLogger(ResourceUtils.class);
 
     public static String fileContentsFromResource(String resourceName) {
         InputStream stream = ResourceUtils.class.getClassLoader().getResourceAsStream(resourceName);
@@ -22,8 +18,7 @@ public class ResourceUtils {
 
             return lines.collect(Collectors.joining());
         } catch (IOException | NullPointerException e) {
-            log.error("Error reading '" + resourceName + "'", e);
-            return null;
+            return "";
         }
     }
 }
