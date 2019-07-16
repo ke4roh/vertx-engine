@@ -8,8 +8,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotNull;
-
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -17,7 +15,7 @@ public class Pipeline {
     Set<Section> sections;
     LocalDateTime createdAt;
 
-    public Pipeline(@NotNull String piplineDefinition) {
+    public Pipeline(String piplineDefinition) {
         this.sections = new HashSet<>();
 
         final JsonArray piplineJson = new JsonArray(piplineDefinition);
