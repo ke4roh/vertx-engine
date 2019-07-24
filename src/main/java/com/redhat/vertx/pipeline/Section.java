@@ -6,19 +6,28 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
+import com.redhat.vertx.Engine;
+import io.reactivex.Completable;
+import io.reactivex.Observable;
+import io.reactivex.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 // TODO make this a Step
 public class Section {
+    Engine engine;
     String name;
     List<Step> steps;
 
-    public Section(JsonArray sectionDef) {
+    public Section(Engine engine, JsonArray sectionDef) {
+        this.engine = engine;
+
         // TODO this is a Section with a default name and default behavior
     }
 
-    public Section(JsonObject sectionDef) {
+    public Section(Engine engine, JsonObject sectionDef) {
+        this.engine = engine;
+
         this.name = sectionDef.getString("section");
 
         this.steps = sectionDef.getJsonArray("steps", new JsonArray()).stream()
@@ -42,21 +51,22 @@ public class Section {
         return Collections.unmodifiableList(steps);
     }
 
-    public CompletionStage<String> execute(ExecutionData executionData) {
+    public Single<Object> execute(String uuid) {
         // Run through every step finding ones that are ready
         // process the steps that are ready
-        CompletableFuture<?>[] stepCompletions = this.steps.stream()
-                    .filter(step -> step.isReady(executionData))
-                    .map(step -> step.process(executionData)
-                                        .thenApplyAsync(returnValue -> {
-                                            this.storeStepResult(returnValue);
-                                            return returnValue.pipelineRunId.toString();
-                                        }))
-                    .map(CompletionStage::toCompletableFuture)
-                    .toArray(CompletableFuture[]::new);
-
-        // Wait for all of them to finish
-        return CompletableFuture.allOf(stepCompletions).thenCompose(aVoid -> CompletableFuture.completedStage("run-id"));
+        // TODO figure out how to chain these events
+        Observable.fromIterable(steps).map( step -> {
+            // TODO this return is probably not right
+            return step.execute(uuid).subscribe(r -> {
+                JsonObject j = new JsonObject();
+                // TODO j.put(step.getRegisterKey(),r);
+                engine.getVertx().eventBus().publish("updateDoc:" + uuid, j);
+            }); // this has to store the result in te doc
+        }).subscribe(f -> {
+            // TODO done!
+        }, exception -> exception.printStackTrace()
+        );
+        // TODO finish the single only when all the steps have completed and updates are finished.
     }
 
     /**

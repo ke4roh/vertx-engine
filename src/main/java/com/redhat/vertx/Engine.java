@@ -1,24 +1,51 @@
 package com.redhat.vertx;
 
-import java.util.concurrent.CompletionStage;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
-import com.redhat.vertx.pipeline.ExecutionData;
-import com.redhat.vertx.pipeline.Pipeline;
 import com.redhat.vertx.pipeline.Section;
+import io.reactivex.Single;
+import io.reactivex.SingleObserver;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.core.AbstractVerticle;
 
 /**
- * Entrypoint for execution of a particular pipeline.
+ * Entrypoint for execution of a particular pipeline, container for the entire execution system.
+ * The execute method on an engine is thread-safe and can process multiple documents at once.
+ * When each document is completed,
  *
  */
-public class Engine {
+public class Engine extends AbstractVerticle {
+    public static final String DOC_UUID = "__uuid__";
     private Section pipeline;
+    private Map<String,JsonObject> docCache = new HashMap<>();
 
     public Engine(String pipelineDef) {
-        this.pipeline = new Section( new JsonArray(pipelineDef));
+        this.pipeline = new Section(this, new JsonObject(pipelineDef));
     }
 
-    public CompletionStage<String> execute(String executionData) {
-        return pipeline.execute(new ExecutionData(executionData));
+    /**
+     *
+     * @param executionData
+     * @return The document at the end of execution
+     */
+    public Single<JsonObject> execute(JsonObject executionData) {
+        String uuid = UUID.randomUUID().toString();
+        executionData.put(DOC_UUID, uuid);
+        docCache.put(uuid, executionData);
+        return Single.create(emitter ->
+            pipeline.execute(uuid).subscribe(
+                    o -> emitter.onSuccess(docCache.remove(uuid)),
+                    exception -> {
+                        exception.printStackTrace();
+                        docCache.remove(uuid);
+                    })
+        );
+    }
+
+    public JsonObject getDoc(String uuid) {
+        return docCache.get(uuid);
     }
 }

@@ -4,6 +4,7 @@ package com.redhat.vertx.pipeline;
 // Java Concurrent or vert.x rx?
 import java.util.concurrent.CompletionStage;
 
+import io.reactivex.Single;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
@@ -27,18 +28,11 @@ public interface Step {
     public void init(JsonObject config, Future<Void> future);
 
     /**
-     * Return true if, upon examination of the environment, it is time to execute this step
-     * @param data ExecutionData - environment prepared for this step
-     * @return
-     */
-    public boolean isReady(ExecutionData data);
-
-    /**
      *
-     * @param document being built
+     * @param uuid the key for the document being built (get it from the engine)
      * @return The (Json-compatible) object to be persisted as a memento of this execution.  It may be a string, int,
      * a JsonArray, JsonObject, etc.
      */
-    public CompletionStage<StepReturnValue> process(ExecutionData document);
+    public Single<Object> execute(String uuid);
 
 }
