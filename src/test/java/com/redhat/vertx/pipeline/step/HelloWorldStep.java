@@ -13,7 +13,7 @@ public class HelloWorldStep implements Step {
     }
 
     @Override
-    public Single<Object> execute(JsonObject data) {
+    public Single<Object> execute(String uuid) {
         return Single.just("hello, world");
     }
 }
