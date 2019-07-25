@@ -4,6 +4,8 @@ package com.redhat.vertx.pipeline;
 // Java Concurrent or vert.x rx?
 import java.util.concurrent.CompletionStage;
 
+import com.redhat.vertx.Engine;
+import io.reactivex.Completable;
 import io.reactivex.Single;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -22,10 +24,10 @@ public interface Step {
     /**
      * Configure this step (static configuration upon parsing the pipeline the first time)
      *
+     * @param engine The engine to which this step is bound.  The engine provides document cache and vertx.
      * @param config The configuration for this step
-     * @param future The result of configuring this step
      */
-    public void init(JsonObject config, Future<Void> future);
+    public void init(Engine engine, JsonObject config);
 
     /**
      *

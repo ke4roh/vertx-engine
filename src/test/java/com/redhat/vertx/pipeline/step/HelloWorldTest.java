@@ -22,7 +22,7 @@ public class HelloWorldTest {
                 fail("Failed", throwable);
 
             assertThat(entries).isNotNull();
-            assertThat(entries.getString("hello")).isEqualTo("hello, world");
+            assertThat(entries.getString("hello")).isEqualTo("hello, Jason");
             latch.countDown();
         });
 
