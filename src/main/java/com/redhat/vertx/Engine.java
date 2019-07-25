@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import com.redhat.vertx.pipeline.Section;
 import io.reactivex.Single;
-import io.reactivex.SingleObserver;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.AbstractVerticle;
@@ -23,7 +22,7 @@ public class Engine extends AbstractVerticle {
     private Map<String,JsonObject> docCache = new HashMap<>();
 
     public Engine(String pipelineDef) {
-        this.pipeline = new Section(this, new JsonObject(pipelineDef));
+        this.pipeline = new Section(this, new JsonArray(pipelineDef));
     }
 
     /**
