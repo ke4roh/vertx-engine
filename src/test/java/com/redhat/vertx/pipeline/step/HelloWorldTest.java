@@ -20,23 +20,10 @@ public class HelloWorldTest {
     @Test
     public void checkHelloWorld(Vertx vertx, VertxTestContext testContext) throws Exception {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("hello-world-pipeline.json"));
-
-        vertx.rxDeployVerticle(e).subscribe(s -> {
-            testContext.verify(() -> {
-                TestObserver<Object> testObserver = new TestObserver<>();
-
-                e.execute(new JsonObject())
-                        .subscribeWith(testObserver)
-                        .assertSubscribed()
-                        .assertValueCount(1);
-
-                List<Object> values = testObserver.values();
-
-                assertThat(values).isNotNull();
-                assertThat(((JsonObject) values.get(0)).getString("default")).isEqualTo("hello, Jason");
-                testContext.completeNow();
-            });
-
-        });
+        vertx.rxDeployVerticle(e).blockingGet();
+        JsonObject newDoc = e.execute(new JsonObject()).blockingGet();
+        assertThat(newDoc.getString(Engine.DOC_UUID)).isNotBlank();
+        assertThat(newDoc.getString("greetings")).isEqualTo("hello, Jason");
+        testContext.completeNow();
     }
 }

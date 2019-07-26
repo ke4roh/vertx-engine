@@ -6,6 +6,8 @@ import java.util.List;
 
 import com.redhat.vertx.DocumentUpdateEvent;
 import com.redhat.vertx.Engine;
+import io.reactivex.Completable;
+import io.reactivex.CompletableSource;
 import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.vertx.core.json.JsonArray;
@@ -59,37 +61,47 @@ public class Section implements Step {
     public Single<Object> execute(String uuid) {
         // Run through every step finding ones that are ready
         // process the steps that are ready
-        // TODO register into the named place on the document (event for modify doc, event for doc modified, wait for
-        // doc modified before marking step complete)
+
         return Single.create(emitter -> {
-                Observable.fromIterable(steps)
-                        .map(step ->
-                                step.execute(uuid).subscribe((result, err) -> {
-                                    if (err != null) {
-                                        err.printStackTrace();
-                                        emitter.tryOnError(err);
-                                    } else {
-                                        final var updateEvent = new DocumentUpdateEvent(uuid, getName(), result);
-                                        engine.updateDocument(updateEvent);
-                                        emitter.onSuccess("complete");
-                                        // Doing below pulls us out of the thread or process or something and the flow
-                                        // continues on like it never receives anything, seems like this all needs to be done
-                                        // in the same processing scope.
-//                                        final var deliveryOptions = new DeliveryOptions().setCodecName(DocumentUpdateEvent.CODEC.name());
-//                                        bus.rxSend("updateDoc", updateEvent, deliveryOptions)
-//                                                .subscribe((objectMessage, throwable) -> {
-//                                                    if (throwable != null) {
-//                                                        emitter.tryOnError(throwable);
-//                                                        return;
-//                                                    }
-//                                                    emitter.onSuccess(objectMessage);
-//                                                });
-                                    }
-                                })
-                        )
-                        // We're done
-                        .doOnComplete(() -> emitter.onSuccess(engine.getDoc(uuid)))
-                        .subscribe();
+            Observable observable = null;
+            for (Step step: steps) {
+                if (observable==null) {
+                    observable=executeStep(step);
+                } else {
+                    observable.merge(executeStep(step,uuid));
+                }
+            }
+            observable.subscribe((x)-> {
+                // this is a section
+                emitter.onSuccess(name);
+            }, (err) -> {
+                emitter.tryOnError(err);
+            });
+        });
+    }
+
+    /**
+     * This is fundamentally the step executor.  When a step executes, these things happen:
+     * 1. The step executes and produces some result
+     * 2. The result gets put on an event to be added to the document
+     * 3. The result is added to the document, and an event is fired for the document change
+     * 4. The step is complete when its change is stored in the document
+     *
+     * If there is no "register" for a step, then the step is complete immediately after execution.
+     */
+    public Observable executeStep(Step step, String uuid) {
+        return Observable.create(source -> {
+            Single<Object> single = step.execute(uuid);
+            single.subscribe(onSuccess -> {
+                if (step.getRegisterTo()) {
+                    // subscribe for doc changed event
+                    // fire event to change the doc
+                    // receive doc changed event (matching)
+                }
+                // complete "source"
+            }, onError -> {
+                // fail "source"
+            });
         });
     }
 
