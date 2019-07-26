@@ -9,7 +9,6 @@ import io.reactivex.Single;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.reactivex.core.AbstractVerticle;
 
 /**
  * Entrypoint for execution of a particular pipeline, container for the entire execution system.
@@ -17,7 +16,7 @@ import io.vertx.reactivex.core.AbstractVerticle;
  * When each document is completed,
  *
  */
-public class Engine extends AbstractVerticle {
+public class Engine {
     public static final String DOC_UUID = "__uuid__";
     private Section pipeline;
     private Map<String,JsonObject> docCache = new HashMap<>();
@@ -45,14 +44,20 @@ public class Engine extends AbstractVerticle {
         String uuid = UUID.randomUUID().toString();
         executionData.put(DOC_UUID, uuid);
         docCache.put(uuid, executionData);
-        return Single.create(emitter ->
-            pipeline.execute(uuid).subscribe(
-                    o -> emitter.onSuccess(docCache.remove(uuid)),
-                    exception -> {
-                        exception.printStackTrace();
-                        docCache.remove(uuid);
-                    })
-        );
+        return Single.create(emitter -> {
+            if (!emitter.isDisposed()) {
+                pipeline.execute(uuid)
+                        .subscribe(
+                                (result, err) -> {
+                                    if (err != null) {
+                                        docCache.remove(uuid);
+                                        emitter.onError(err);
+                                    }
+
+                                    emitter.onSuccess(docCache.remove(uuid));
+                                });
+            }
+        });
     }
 
     public JsonObject getDoc(String uuid) {

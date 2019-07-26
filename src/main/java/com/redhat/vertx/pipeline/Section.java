@@ -3,12 +3,10 @@ package com.redhat.vertx.pipeline;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.redhat.vertx.Engine;
 import io.reactivex.Observable;
 import io.reactivex.Single;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -55,26 +53,31 @@ public class Section implements Step {
         // TODO register into the named place on the document (event for modify doc, event for doc modified, wait for
         // doc modified before marking step complete)
         return Single.create(emitter -> {
-            ExecuteAggregator aggregator = new ExecuteAggregator("");
-            Observable.fromIterable(steps)
-                    .map(step ->
-                            step.execute(uuid)
-                            .doOnSuccess(result -> {
-                                JsonObject j = new JsonObject();
-                                // TODO j.put(step.getRegisterKey(),r);
-                                engine.getDoc(uuid).put(getName(), result);
+                    if (!emitter.isDisposed()) {
+                        ExecuteAggregator aggregator = new ExecuteAggregator("");
+                        Observable.fromIterable(steps)
+                                .map(step ->
+                                        step.execute(uuid)
+                                                .doOnSuccess(result -> {
+                                                    JsonObject j = new JsonObject();
+                                                    // TODO j.put(step.getRegisterKey(),r);
+                                                    engine.getDoc(uuid).put(getName(), result);
 //                                    engine.getVertx().eventBus().publish("updateDoc:" + uuid, j);
-                            })
-                            .doOnError(err -> {
-                                err.printStackTrace();
-                                emitter.onError(err);
-                            }))
-                    .subscribe(
-                        nextSingle -> nextSingle.subscribe(o -> aggregator.addResult(o.toString())),
-                        Throwable::printStackTrace,
-                        () -> emitter.onSuccess(aggregator.getResult())
-                    );
-        });
+                                                })
+                                                .doOnError(err -> {
+                                                    err.printStackTrace();
+                                                    emitter.onError(err);
+                                                }))
+                                .subscribe(
+                                        nextSingle -> nextSingle.subscribe(o -> aggregator.addResult(o.toString())).dispose(),
+                                        err -> {
+                                            err.printStackTrace();
+                                            emitter.onError(err);
+                                        },
+                                        () -> emitter.onSuccess(aggregator.getResult())
+                                );
+                    }
+                });
     }
 
     class ExecuteAggregator {
