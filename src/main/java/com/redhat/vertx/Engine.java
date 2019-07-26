@@ -9,6 +9,8 @@ import io.reactivex.Single;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.eventbus.Message;
 
 /**
  * Entrypoint for execution of a particular pipeline, container for the entire execution system.
@@ -16,7 +18,7 @@ import io.vertx.core.json.JsonObject;
  * When each document is completed,
  *
  */
-public class Engine {
+public class Engine extends AbstractVerticle {
     public static final String DOC_UUID = "__uuid__";
     private Section pipeline;
     private Map<String,JsonObject> docCache = new HashMap<>();
@@ -44,23 +46,28 @@ public class Engine {
         String uuid = UUID.randomUUID().toString();
         executionData.put(DOC_UUID, uuid);
         docCache.put(uuid, executionData);
-        return Single.create(emitter -> {
-            if (!emitter.isDisposed()) {
-                pipeline.execute(uuid)
-                        .subscribe(
-                                (result, err) -> {
-                                    if (err != null) {
-                                        docCache.remove(uuid);
-                                        emitter.onError(err);
-                                    }
+        return Single.create(emitter ->
+                pipeline.execute(uuid).subscribe((result, err) -> {
+                    if (err != null) {
+                        docCache.remove(uuid);
+                        emitter.tryOnError(err);
+                    }
 
-                                    emitter.onSuccess(docCache.remove(uuid));
-                                });
-            }
-        });
+                    emitter.onSuccess(docCache.remove(uuid));
+                }));
     }
 
     public JsonObject getDoc(String uuid) {
         return docCache.get(uuid);
+    }
+
+    public Single<Message<Object>> updateDoc(Message<DocumentUpdateEvent> msg) {
+        updateDocument(msg.body());
+        return msg.rxReply("complete");
+    }
+
+    public void updateDocument(DocumentUpdateEvent event) {
+        JsonObject doc = getDoc(event.getUuid());
+        doc.put(event.getName(), event.getValue());
     }
 }
