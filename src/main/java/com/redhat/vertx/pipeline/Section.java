@@ -3,20 +3,21 @@ package com.redhat.vertx.pipeline;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
+import com.redhat.vertx.DocumentUpdateEvent;
 import com.redhat.vertx.Engine;
 import io.reactivex.Observable;
 import io.reactivex.Single;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.core.eventbus.EventBus;
 
 // TODO make this a Step
 public class Section implements Step {
     Engine engine;
     String name;
     List<Step> steps;
+    EventBus bus;
 
     public Section() {
 
@@ -47,6 +48,12 @@ public class Section implements Step {
             steps.add(s);
         }
         this.steps=Collections.unmodifiableList(steps);
+
+        // TODO: Probably needs to be done somewhere else
+        // Had to comment out the message, it broke stuff
+//        bus = Vertx.vertx().eventBus();
+//        bus.consumer("updateDoc", engine::updateDoc);
+//        bus.registerCodec(DocumentUpdateEvent.CODEC);
     }
 
     public Single<Object> execute(String uuid) {
@@ -55,25 +62,34 @@ public class Section implements Step {
         // TODO register into the named place on the document (event for modify doc, event for doc modified, wait for
         // doc modified before marking step complete)
         return Single.create(emitter -> {
-            ExecuteAggregator aggregator = new ExecuteAggregator("");
-            Observable.fromIterable(steps)
-                    .map(step ->
-                            step.execute(uuid)
-                            .doOnSuccess(result -> {
-                                JsonObject j = new JsonObject();
-                                // TODO j.put(step.getRegisterKey(),r);
-                                engine.getDoc(uuid).put(getName(), result);
-//                                    engine.getVertx().eventBus().publish("updateDoc:" + uuid, j);
-                            })
-                            .doOnError(err -> {
-                                err.printStackTrace();
-                                emitter.onError(err);
-                            }))
-                    .subscribe(
-                        nextSingle -> nextSingle.subscribe(o -> aggregator.addResult(o.toString())),
-                        Throwable::printStackTrace,
-                        () -> emitter.onSuccess(aggregator.getResult())
-                    );
+                Observable.fromIterable(steps)
+                        .map(step ->
+                                step.execute(uuid).subscribe((result, err) -> {
+                                    if (err != null) {
+                                        err.printStackTrace();
+                                        emitter.tryOnError(err);
+                                    } else {
+                                        final var updateEvent = new DocumentUpdateEvent(uuid, getName(), result);
+                                        engine.updateDocument(updateEvent);
+                                        emitter.onSuccess("complete");
+                                        // Doing below pulls us out of the thread or process or something and the flow
+                                        // continues on like it never receives anything, seems like this all needs to be done
+                                        // in the same processing scope.
+//                                        final var deliveryOptions = new DeliveryOptions().setCodecName(DocumentUpdateEvent.CODEC.name());
+//                                        bus.rxSend("updateDoc", updateEvent, deliveryOptions)
+//                                                .subscribe((objectMessage, throwable) -> {
+//                                                    if (throwable != null) {
+//                                                        emitter.tryOnError(throwable);
+//                                                        return;
+//                                                    }
+//                                                    emitter.onSuccess(objectMessage);
+//                                                });
+                                    }
+                                })
+                        )
+                        // We're done
+                        .doOnComplete(() -> emitter.onSuccess(engine.getDoc(uuid)))
+                        .subscribe();
         });
     }
 

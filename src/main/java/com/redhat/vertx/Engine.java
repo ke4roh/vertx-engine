@@ -10,6 +10,7 @@ import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.eventbus.Message;
 
 /**
  * Entrypoint for execution of a particular pipeline, container for the entire execution system.
@@ -46,16 +47,27 @@ public class Engine extends AbstractVerticle {
         executionData.put(DOC_UUID, uuid);
         docCache.put(uuid, executionData);
         return Single.create(emitter ->
-            pipeline.execute(uuid).subscribe(
-                    o -> emitter.onSuccess(docCache.remove(uuid)),
-                    exception -> {
-                        exception.printStackTrace();
+                pipeline.execute(uuid).subscribe((result, err) -> {
+                    if (err != null) {
                         docCache.remove(uuid);
-                    })
-        );
+                        emitter.tryOnError(err);
+                    }
+
+                    emitter.onSuccess(docCache.remove(uuid));
+                }));
     }
 
     public JsonObject getDoc(String uuid) {
         return docCache.get(uuid);
+    }
+
+    public Single<Message<Object>> updateDoc(Message<DocumentUpdateEvent> msg) {
+        updateDocument(msg.body());
+        return msg.rxReply("complete");
+    }
+
+    public void updateDocument(DocumentUpdateEvent event) {
+        JsonObject doc = getDoc(event.getUuid());
+        doc.put(event.getName(), event.getValue());
     }
 }
