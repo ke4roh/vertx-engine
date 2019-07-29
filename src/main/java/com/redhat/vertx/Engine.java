@@ -60,14 +60,4 @@ public class Engine extends AbstractVerticle {
     public JsonObject getDoc(String uuid) {
         return docCache.get(uuid);
     }
-
-    public Single<Message<Object>> updateDoc(Message<DocumentUpdateEvent> msg) {
-        updateDocument(msg.body());
-        return msg.rxReply("complete");
-    }
-
-    public void updateDocument(DocumentUpdateEvent event) {
-        JsonObject doc = getDoc(event.getUuid());
-        doc.put(event.getName(), event.getValue());
-    }
 }

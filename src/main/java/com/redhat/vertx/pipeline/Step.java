@@ -37,4 +37,9 @@ public interface Step {
      */
     public Single<Object> execute(String uuid);
 
+    /**
+     * @return The name of the field in which to store the result
+     */
+    public String registerResultTo();
+
 }

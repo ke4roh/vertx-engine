@@ -1,20 +1,16 @@
 package com.redhat.vertx.pipeline;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
-import com.redhat.vertx.DocumentUpdateEvent;
 import com.redhat.vertx.Engine;
-import io.reactivex.Completable;
-import io.reactivex.CompletableSource;
 import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
 import io.reactivex.Single;
+import io.reactivex.disposables.Disposable;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.eventbus.EventBus;
 
-// TODO make this a Step
 public class Section implements Step {
     Engine engine;
     String name;
@@ -59,14 +55,13 @@ public class Section implements Step {
     }
 
     public Single<Object> execute(String uuid) {
-        // Run through every step finding ones that are ready
-        // process the steps that are ready
+        // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
 
         return Single.create(emitter -> {
             Observable observable = null;
             for (Step step: steps) {
                 if (observable==null) {
-                    observable=executeStep(step);
+                    observable=executeStep(step,uuid);
                 } else {
                     observable.merge(executeStep(step,uuid));
                 }
@@ -75,9 +70,18 @@ public class Section implements Step {
                 // this is a section
                 emitter.onSuccess(name);
             }, (err) -> {
-                emitter.tryOnError(err);
+                emitter.tryOnError((Throwable)err);
             });
         });
+    }
+
+    /**
+     *
+     * @return null, since there typically isn't content resulting from the execution of a section
+     */
+    @Override
+    public String registerResultTo() {
+        return null;
     }
 
     /**
@@ -92,11 +96,19 @@ public class Section implements Step {
     public Observable executeStep(Step step, String uuid) {
         return Observable.create(source -> {
             Single<Object> single = step.execute(uuid);
+
             single.subscribe(onSuccess -> {
-                if (step.getRegisterTo()) {
-                    // subscribe for doc changed event
-                    // fire event to change the doc
-                    // receive doc changed event (matching)
+                if (step.registerResultTo() != null) {
+                    // register to get the doc changed event (Engine fires that)
+                    bus.consumer("documentChanged." + uuid).bodyStream()
+                            .toObservable()
+                            .filter(msg -> step.registerResultTo().equals(msg)) // identify the matching doc changed event (matching)
+                            .subscribe(msg -> source.onComplete(), err-> source.onError(err));
+
+                    // fire event to change the doc (Engine listens)
+                    bus.publish("changeRequest." + uuid, onSuccess);
+
+
                 }
                 // complete "source"
             }, onError -> {
@@ -120,4 +132,6 @@ public class Section implements Step {
             return result;
         }
     }
+
+
 }

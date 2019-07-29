@@ -8,14 +8,21 @@ import io.vertx.core.json.JsonObject;
 
 public class HelloWorldStep implements Step {
     private String name;
+    private String registerTo;
 
     @Override
     public void init(Engine engine, JsonObject config) {
         name = config.getJsonObject("vars",new JsonObject()).getString("name","world");
+        registerTo = config.getString("register","greeting");
     }
 
     @Override
     public Single<Object> execute(String uuid) {
         return Single.just("hello, " + name);
+    }
+
+    @Override
+    public String registerResultTo() {
+        return registerTo;
     }
 }
