@@ -6,6 +6,6 @@
     {
       "name":"Jason"
     },
-    "register": ["greetings"]
+    "register": "greetings"
   }
 ]

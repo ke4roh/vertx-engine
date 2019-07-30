@@ -3,8 +3,8 @@ package com.redhat.vertx.pipeline;
 import java.util.*;
 
 import com.redhat.vertx.Engine;
+import io.reactivex.Completable;
 import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
 import io.reactivex.Single;
 import io.reactivex.disposables.Disposable;
 import io.vertx.core.json.JsonArray;
@@ -15,7 +15,6 @@ public class Section implements Step {
     Engine engine;
     String name;
     List<Step> steps;
-    EventBus bus;
 
     public Section() {
 
@@ -58,15 +57,15 @@ public class Section implements Step {
         // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
 
         return Single.create(emitter -> {
-            Observable observable = null;
+            Completable completable = null;
             for (Step step: steps) {
-                if (observable==null) {
-                    observable=executeStep(step,uuid);
+                if (completable==null) {
+                    completable=executeStep(step,uuid);
                 } else {
-                    observable.merge(executeStep(step,uuid));
+                    completable.mergeWith(executeStep(step,uuid));
                 }
             }
-            observable.subscribe((x)-> {
+            completable.subscribe(()-> {
                 // this is a section
                 emitter.onSuccess(name);
             }, (err) -> {
@@ -93,26 +92,33 @@ public class Section implements Step {
      *
      * If there is no "register" for a step, then the step is complete immediately after execution.
      */
-    public Observable executeStep(Step step, String uuid) {
-        return Observable.create(source -> {
+    public Completable executeStep(Step step, String uuid) {
+        return Completable.create(source -> {
             Single<Object> single = step.execute(uuid);
-
             single.subscribe(onSuccess -> {
                 if (step.registerResultTo() != null) {
                     // register to get the doc changed event (Engine fires that)
-                    bus.consumer("documentChanged." + uuid).bodyStream()
+                    EventBus bus = engine.getEventBus();
+                    final List<Disposable> consumer = new ArrayList<Disposable>(1);
+                    consumer.add(bus.consumer("documentChanged." + uuid).bodyStream()
                             .toObservable()
                             .filter(msg -> step.registerResultTo().equals(msg)) // identify the matching doc changed event (matching)
-                            .subscribe(msg -> source.onComplete(), err-> source.onError(err));
+                            .subscribe(msg -> {
+                                source.onComplete(); // this step is complete
+                                consumer.stream().filter(d -> { d.dispose(); return false; });
+                            } , err -> {
+                                source.onError(err);
+                                consumer.stream().filter(d -> { d.dispose(); return false; });
+                            })
+                    );
 
                     // fire event to change the doc (Engine listens)
-                    bus.publish("changeRequest." + uuid, onSuccess);
-
-
+                    bus.publish("changeRequest." + uuid, new JsonObject().put(step.registerResultTo(),onSuccess));
+                } else { // No result to store, step is completed
+                    source.onComplete();
                 }
-                // complete "source"
             }, onError -> {
-                // fail "source"
+                source.onError(onError);
             });
         });
     }
