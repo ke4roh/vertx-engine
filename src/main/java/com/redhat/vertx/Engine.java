@@ -5,8 +5,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.redhat.vertx.pipeline.Section;
-import io.reactivex.Observable;
+import io.reactivex.Completable;
 import io.reactivex.Single;
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -17,7 +19,7 @@ import io.vertx.reactivex.core.eventbus.MessageConsumer;
 /**
  * Entrypoint for execution of a particular pipeline, container for the entire execution system.
  * The execute method on an engine is thread-safe and can process multiple documents at once.
- * When each document is completed,
+ * When each document is completed, it fires a documentCompleted event with the document.
  *
  */
 public class Engine extends AbstractVerticle {
@@ -43,14 +45,22 @@ public class Engine extends AbstractVerticle {
         return vertx.eventBus();
     }
 
+    @Override
+    public Completable rxStart() {
+        DocumentLogger documentLogger = new DocumentLogger();
+        vertx.deployVerticle(documentLogger);
+        return Completable.complete();
+    }
+
     /**
      *
-     * @param executionData
-     * @return The document at the end of execution
+     * @param executionData The document to process
+     * @return A single which will provide the document at the end of execution
      */
     public Single<JsonObject> execute(JsonObject executionData) {
         String uuid = UUID.randomUUID().toString();
         executionData.put(DOC_UUID, uuid);
+
         docCache.put(uuid, executionData);
         EventBus bus = getEventBus();
         bus.publish("documentStarted", uuid);

@@ -12,9 +12,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.eventbus.EventBus;
 
 public class Section implements Step {
-    Engine engine;
-    String name;
-    List<Step> steps;
+    private Engine engine;
+    private String name;
+    private List<Step> steps;
 
     public Section() {
 
@@ -22,12 +22,11 @@ public class Section implements Step {
 
     private Step buildStep(JsonObject def) {
         try {
-            Class<Step> klass = (Class<Step>) Class.forName(def.getString("class"));
+            Class<? extends Step> klass = (Class<? extends Step>) Class.forName(def.getString("class"));
             return klass.getDeclaredConstructor((Class[]) null).newInstance();
         } catch (ReflectiveOperationException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
-        return null;
     }
 
     public String getName() {
@@ -55,21 +54,22 @@ public class Section implements Step {
 
     public Single<Object> execute(String uuid) {
         // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
+        EventBus bus = engine.getEventBus();
+        // TODO why aren't these section status messages picked up by DocumentLogger?
+        bus.publish("sectionStarted."+ uuid, name);
 
         return Single.create(emitter -> {
-            Completable completable = null;
+            Completable completable = Completable.complete();
             for (Step step: steps) {
-                if (completable==null) {
-                    completable=executeStep(step,uuid);
-                } else {
-                    completable.mergeWith(executeStep(step,uuid));
-                }
+                completable=executeStep(step,uuid).mergeWith(completable);
             }
             completable.subscribe(()-> {
                 // this is a section
                 emitter.onSuccess(name);
+                bus.publish("sectionCompleted."+ uuid, name);
             }, (err) -> {
-                emitter.tryOnError((Throwable)err);
+                emitter.tryOnError(err);
+                bus.publish("sectionErrored."+ uuid, new JsonArray(Arrays.asList(name, err.toString())));
             });
         });
     }
@@ -92,14 +92,14 @@ public class Section implements Step {
      *
      * If there is no "register" for a step, then the step is complete immediately after execution.
      */
-    public Completable executeStep(Step step, String uuid) {
+    private Completable executeStep(Step step, String uuid) {
         return Completable.create(source -> {
             Single<Object> single = step.execute(uuid);
             single.subscribe(onSuccess -> {
                 if (step.registerResultTo() != null) {
                     // register to get the doc changed event (Engine fires that)
                     EventBus bus = engine.getEventBus();
-                    final List<Disposable> consumer = new ArrayList<Disposable>(1);
+                    final List<Disposable> consumer = new ArrayList<>(1);
                     consumer.add(bus.consumer("documentChanged." + uuid).bodyStream()
                             .toObservable()
                             .filter(msg -> step.registerResultTo().equals(msg)) // identify the matching doc changed event (matching)
@@ -113,13 +113,12 @@ public class Section implements Step {
                     );
 
                     // fire event to change the doc (Engine listens)
-                    bus.publish("changeRequest." + uuid, new JsonObject().put(step.registerResultTo(),onSuccess));
+                    JsonObject delta =  new JsonObject().put(step.registerResultTo(),onSuccess);
+                    bus.publish("changeRequest." + uuid, delta);
                 } else { // No result to store, step is completed
                     source.onComplete();
                 }
-            }, onError -> {
-                source.onError(onError);
-            });
+            }, source::onError);
         });
     }
 

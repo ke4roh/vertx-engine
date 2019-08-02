@@ -1,0 +1,35 @@
+[
+  {
+    "name":"hello",
+    "class":"com.redhat.vertx.pipeline.step.HelloWorldStep",
+    "vars":
+    {
+      "name":"Jason"
+    },
+    "register": "greetings"
+  },
+  {
+    "name":"unusualGreetings",
+    "class":"com.redhat.vertx.pipeline.Section",
+    "steps":[
+      {
+        "name":"knockKnock",
+        "class":"com.redhat.vertx.pipeline.step.HelloWorldStep",
+        "vars":
+        {
+          "name":"Banana"
+        },
+        "register": "nuisance"
+      },
+      {
+        "name":"green",
+        "class":"com.redhat.vertx.pipeline.step.HelloWorldStep",
+        "vars":
+        {
+          "name":"Blue"
+        },
+        "register": "rainbow"
+      }
+    ]
+  }
+]
