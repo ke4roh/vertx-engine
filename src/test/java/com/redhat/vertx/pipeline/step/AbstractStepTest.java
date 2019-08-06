@@ -38,7 +38,7 @@ public class AbstractStepTest {
     }
 
     @Test
-    public void checkHelloWorld(Vertx vertx, VertxTestContext testContext) throws Exception {
+    public void testSequencingStepsWithIncompleteEnvironments(Vertx vertx, VertxTestContext testContext) throws Exception {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("abstract-step-test-pipeline.json"));
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject().put("x","");
