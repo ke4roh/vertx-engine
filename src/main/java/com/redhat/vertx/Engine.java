@@ -7,8 +7,7 @@ import java.util.UUID;
 import com.redhat.vertx.pipeline.Section;
 import io.reactivex.Completable;
 import io.reactivex.Single;
-import io.vertx.core.Context;
-import io.vertx.core.Vertx;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -47,9 +46,16 @@ public class Engine extends AbstractVerticle {
 
     @Override
     public Completable rxStart() {
-        DocumentLogger documentLogger = new DocumentLogger();
-        vertx.deployVerticle(documentLogger);
-        return Completable.complete();
+        return Completable.create(emitter -> {
+            DocumentLogger documentLogger = new DocumentLogger();
+            vertx.rxDeployVerticle(documentLogger, new DeploymentOptions().setWorker(true).setWorkerPoolName("logger")).subscribe((s, throwable) -> {
+                if (throwable != null) {
+                    emitter.tryOnError(throwable);
+                } else {
+                    emitter.onComplete();
+                }
+            });
+        });
     }
 
     /**
