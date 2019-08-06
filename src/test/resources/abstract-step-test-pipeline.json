@@ -1,0 +1,42 @@
+[
+  {
+    "name":"m",
+    "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
+    "vars":
+    {
+      "from":"x",
+      "append":"m"
+    },
+    "register": "c"
+  },
+  {
+    "name":"e",
+    "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
+    "vars":
+    {
+      "from":"c",
+      "append":"e"
+    },
+    "register": "ca"
+  },
+  {
+    "name":"o",
+    "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
+    "vars":
+    {
+      "from":"ca",
+      "append":"o"
+    },
+    "register": "cat"
+  },
+  {
+    "name":"w",
+    "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
+    "vars":
+    {
+      "from":"cat",
+      "append":"w"
+    },
+    "register": "cats"
+  }
+]

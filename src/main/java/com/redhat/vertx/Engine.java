@@ -83,4 +83,8 @@ public class Engine extends AbstractVerticle {
                     }
                 }));
     }
+
+    public JsonObject getDocument(String uuid) {
+        return docCache.get(uuid);
+    }
 }

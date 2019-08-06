@@ -58,6 +58,8 @@ public class Section implements Step {
         // TODO why aren't these section status messages picked up by DocumentLogger?
         bus.publish("sectionStarted."+ uuid, name);
 
+        // TODO is there a more succinct way to merge all this and fire a few events when it's done?
+        // e.g. Observable.concat(steps.stream().map(s -> executeStep(s,uuid).toObservable()).iterator());
         return Single.create(emitter -> {
             Completable completable = Completable.complete();
             for (Step step: steps) {
