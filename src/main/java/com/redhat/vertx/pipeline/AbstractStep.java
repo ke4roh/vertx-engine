@@ -66,7 +66,7 @@ public abstract class AbstractStep implements Step {
         if (started.size()==0) {
             try {
                 started.add(Boolean.TRUE);
-                Single<Object> result = executeSlow(getDocument(uuid));
+                Single<Object> result = executeSlow(new Environment(getDocument(uuid),vars));
                 logger.finest(() -> "Step " + name + " gave a single.");
 
                 listener.stream().filter(x -> {x.unregister(); return false; });
@@ -90,13 +90,18 @@ public abstract class AbstractStep implements Step {
                             }
                         });
             } catch (StepDependencyNotMetException e) {
-                logger.finest(() -> "Step " + name + " dependency not met. " + e.getMessage());
+                logger.finest(() -> "Step " + name + " dependency not met (immediate). " + e.getMessage());
                 started.clear();
                 // we'll try again with the next change
             }
         }
     }
 
+    /**
+     *
+     * @param uuid
+     * @return The document (without local step variables) from the engine, based on the given UUID
+     */
     protected JsonObject getDocument(String uuid) {
         return engine.getDocument(uuid);
     }
@@ -115,7 +120,7 @@ public abstract class AbstractStep implements Step {
     /**
      * Override this if the work is slow enough to need to return the result later.
      *
-     * @param doc
+     * @param doc An {@link Environment} consisting of the document with local step variables applied
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
      * @throws StepDependencyNotMetException
      */
