@@ -1,16 +1,15 @@
 package com.redhat.vertx.pipeline;
 
-import com.redhat.vertx.Engine;
-import io.reactivex.Maybe;
-import io.reactivex.Single;
-import io.reactivex.SingleEmitter;
-import io.vertx.core.json.JsonObject;
-import io.vertx.reactivex.core.eventbus.MessageConsumer;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+
+import com.redhat.vertx.Engine;
+import io.reactivex.Single;
+import io.reactivex.SingleEmitter;
+import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.core.eventbus.MessageConsumer;
 
 /**
  * Abstract step offers code for managing steps that might execute longer
@@ -48,8 +47,8 @@ public abstract class AbstractStep implements Step {
         return Single.create(source -> {
             List<Object> started = new ArrayList<>();
             List<MessageConsumer<Object>> listener = new ArrayList<>();
-            listener.add(engine.getEventBus().consumer("documentChanged." + uuid, delta ->
-                execute0(uuid, source, started, listener)
+            listener.add(engine.getEventBus().consumer("documentChanged", delta ->
+                execute0(delta.headers().get("uuid"), source, started, listener)
             ));
             execute0(uuid,source,started, listener);
         });

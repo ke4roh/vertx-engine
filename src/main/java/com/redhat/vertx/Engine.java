@@ -1,13 +1,14 @@
 package com.redhat.vertx;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.redhat.vertx.pipeline.Section;
 import io.reactivex.Completable;
 import io.reactivex.Single;
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -24,7 +25,7 @@ import io.vertx.reactivex.core.eventbus.MessageConsumer;
 public class Engine extends AbstractVerticle {
     public static final String DOC_UUID = "__uuid__";
     private Section pipeline;
-    private Map<String,JsonObject> docCache = new HashMap<>();
+    private Map<String,JsonObject> docCache = new ConcurrentHashMap<>();
 
     public Engine(String pipelineDef) {
         Object json = Json.decodeValue(pipelineDef);
@@ -48,7 +49,7 @@ public class Engine extends AbstractVerticle {
     public Completable rxStart() {
         return Completable.create(emitter -> {
             DocumentLogger documentLogger = new DocumentLogger();
-            vertx.rxDeployVerticle(documentLogger, new DeploymentOptions().setWorker(true).setWorkerPoolName("logger")).subscribe((s, throwable) -> {
+            vertx.rxDeployVerticle(documentLogger, new DeploymentOptions().setWorker(true).setWorkerPoolName("document-logger")).subscribe((s, throwable) -> {
                 if (throwable != null) {
                     emitter.tryOnError(throwable);
                 } else {
@@ -70,11 +71,12 @@ public class Engine extends AbstractVerticle {
         docCache.put(uuid, executionData);
         EventBus bus = getEventBus();
         bus.publish("documentStarted", uuid);
-        MessageConsumer<Object> changeWatcher = bus.consumer("changeRequest." + uuid, delta -> {
+        MessageConsumer<Object> changeWatcher = bus.consumer("changeRequest", delta -> {
             JsonObject body = (JsonObject) delta.body();
             assert body.size() == 1;
             docCache.get(uuid).mergeIn(body);
-            bus.publish("documentChanged." + uuid, body.iterator().next().getKey());
+            final var deliveryOptions = new DeliveryOptions().addHeader("uuid", uuid);
+            bus.publish("documentChanged", body.iterator().next().getKey(), deliveryOptions);
         });
 
         return Single.create(source ->
