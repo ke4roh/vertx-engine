@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.redhat.vertx.pipeline.EventBusMessage;
 import com.redhat.vertx.pipeline.Section;
 import io.reactivex.Completable;
 import io.reactivex.Single;
@@ -70,18 +71,18 @@ public class Engine extends AbstractVerticle {
 
         docCache.put(uuid, executionData);
         EventBus bus = getEventBus();
-        bus.publish("documentStarted", uuid);
-        MessageConsumer<Object> changeWatcher = bus.consumer("changeRequest", delta -> {
+        bus.publish(EventBusMessage.DOCUMENT_STARTED, uuid);
+        MessageConsumer<Object> changeWatcher = bus.consumer(EventBusMessage.CHANGE_REQUEST, delta -> {
             JsonObject body = (JsonObject) delta.body();
             assert body.size() == 1;
             docCache.get(uuid).mergeIn(body);
             final var deliveryOptions = new DeliveryOptions().addHeader("uuid", uuid);
-            bus.publish("documentChanged", body.iterator().next().getKey(), deliveryOptions);
+            bus.publish(EventBusMessage.DOCUMENT_CHANGED, body.iterator().next().getKey(), deliveryOptions);
         });
 
         return Single.create(source ->
                 pipeline.execute(uuid).subscribe((result, err) -> {
-                    bus.publish("documentCompleted", uuid);
+                    bus.publish(EventBusMessage.DOCUMENT_COMPLETED, uuid);
                     JsonObject doc = docCache.remove(uuid);
                     changeWatcher.unregister();
                     if (err != null) {
