@@ -59,11 +59,23 @@ public abstract class AbstractStep implements Step {
      * @param listener (A container for) the listener to document change events so that it can be unsubscribed
      */
     private void execute0(String uuid, SingleEmitter<Object> source, Collection<MessageConsumer<Object>> listener) {
+        /**
+         * The gist of this function is:
+         *
+         * try {
+         *    executeSlow(success -> pass it back,
+         *    error -> if it was StepDependencyNotMetException and we don't already have a listener, register a listener
+         *    and try again.)
+         *
+         * } catch (StepDependencyNotMetException e) {
+         *    register a listener and defer execution until after a change
+         * }
+         */
         try {
             Single<Object> result = executeSlow(new Environment(getDocument(uuid),vars));
             logger.finest(() -> "Step " + name + " gave a single.");
 
-            listener.stream().filter(x -> {x.unregister(); return false; });
+            bulkUnregister(listener);
             result.timeout(timeout, TimeUnit.MILLISECONDS).subscribe(
                     r -> {
                         bulkUnregister(listener);
@@ -87,9 +99,11 @@ public abstract class AbstractStep implements Step {
                     });
         } catch (StepDependencyNotMetException e) {
             logger.finest(() -> "Step " + name + " dependency not met (immediate). " + e.getMessage());
-            listener.add(engine.getEventBus().consumer("documentChanged." + uuid, delta ->
-                    execute0(uuid, source, listener)
-            ));
+            if (listener.isEmpty()) {
+                listener.add(engine.getEventBus().consumer("documentChanged." + uuid, delta ->
+                        execute0(uuid, source, listener)
+                ));
+            }
             // we'll try again with the next change
         }
     }
@@ -99,10 +113,8 @@ public abstract class AbstractStep implements Step {
      *
      * @param listener
      */
-    private void bulkUnregister(Collection<MessageConsumer<Object>> listener) {
-        for (MessageConsumer<Object> l:listener) {
-            l.unregister();
-        }
+    private static void bulkUnregister(Collection<MessageConsumer<Object>> listener) {
+        listener.iterator().forEachRemaining(MessageConsumer::unregister);
         listener.clear();
     }
 

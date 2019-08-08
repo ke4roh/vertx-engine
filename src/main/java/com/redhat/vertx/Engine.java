@@ -7,8 +7,6 @@ import java.util.UUID;
 import com.redhat.vertx.pipeline.Section;
 import io.reactivex.Completable;
 import io.reactivex.Single;
-import io.vertx.core.Context;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -64,6 +62,7 @@ public class Engine extends AbstractVerticle {
         docCache.put(uuid, executionData);
         EventBus bus = getEventBus();
         bus.publish("documentStarted", uuid);
+
         MessageConsumer<Object> changeWatcher = bus.consumer("changeRequest." + uuid, delta -> {
             JsonObject body = (JsonObject) delta.body();
             assert body.size() == 1;

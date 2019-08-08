@@ -84,9 +84,7 @@ public class DocumentLogger extends AbstractVerticle {
 
     private void onCompletedDocument(String uuid) {
         logger.info("Completed document " + uuid);
-        for (MessageConsumer<Object> listener: listeners.remove(uuid)) {
-            listener.unregister();
-        }
+        listeners.remove(uuid).iterator().forEachRemaining(MessageConsumer::unregister);
     }
 
 }
