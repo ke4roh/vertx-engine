@@ -1,16 +1,21 @@
 package com.redhat.vertx;
 
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import io.reactivex.Completable;
 import io.vertx.core.Context;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.eventbus.EventBus;
+import io.vertx.reactivex.core.eventbus.MessageConsumer;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * DocumentLogger watches events related to documents and logs them.

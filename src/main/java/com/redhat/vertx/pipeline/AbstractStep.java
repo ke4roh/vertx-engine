@@ -1,15 +1,16 @@
 package com.redhat.vertx.pipeline;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
-
 import com.redhat.vertx.Engine;
+import io.reactivex.Maybe;
 import io.reactivex.Single;
 import io.reactivex.SingleEmitter;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.eventbus.MessageConsumer;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 /**
  * Abstract step offers code for managing steps that might execute longer
@@ -45,55 +46,75 @@ public abstract class AbstractStep implements Step {
     @Override
     public final Single<Object> execute(String uuid) {
         return Single.create(source -> {
-            List<Object> started = new ArrayList<>();
             List<MessageConsumer<Object>> listener = new ArrayList<>();
-            listener.add(engine.getEventBus().consumer("documentChanged", delta ->
-                execute0(delta.headers().get("uuid"), source, started, listener)
-            ));
-            execute0(uuid,source,started, listener);
+            execute0(uuid,source, listener);
         });
     }
 
     /**
      *
      * @param uuid The UUID of the document to be operated on
-     * @param source The SingleEmitter for the AbstractStep execution we're attempting to complete
-     * @param started A (container for a) boolean
+     * @param source The SingleEmitter for the AbstractStep execution we're attmembempting to complete
      * @param listener (A container for) the listener to document change events so that it can be unsubscribed
      */
-    private void execute0(String uuid, SingleEmitter<Object> source, List<Object> started, List<MessageConsumer<Object>> listener) {
-        if (started.size()==0) {
-            try {
-                started.add(Boolean.TRUE);
-                Single<Object> result = executeSlow(new Environment(getDocument(uuid),vars));
-                logger.finest(() -> "Step " + name + " gave a single.");
+    private void execute0(String uuid, SingleEmitter<Object> source, Collection<MessageConsumer<Object>> listener) {
+        /**
+         * The gist of this function is:
+         *
+         * try {
+         *    executeSlow(success -> pass it back,
+         *    error -> if it was StepDependencyNotMetException and we don't already have a listener, register a listener
+         *    and try again.)
+         *
+         * } catch (StepDependencyNotMetException e) {
+         *    register a listener and defer execution until after a change
+         * }
+         */
+        try {
+            Single<Object> result = executeSlow(new Environment(getDocument(uuid),vars));
+            logger.finest(() -> "Step " + name + " gave a single.");
 
-                listener.stream().filter(x -> {x.unregister(); return false; });
-                result.timeout(timeout, TimeUnit.MILLISECONDS).subscribe(
-                        r -> {
-                            listener.stream().filter(x -> {
-                                x.unregister();
-                                return false;
-                            });
-                            logger.finest(() -> "Step " + name + " completed successfully, yielding a " + r.getClass().getName());
-                            source.onSuccess(r);
-                        },
-                        err -> {
-                            if (err instanceof StepDependencyNotMetException) {
-                                logger.finest(() -> "Step " + name + " dependency not met (deferred). " + err.getMessage());
-                                started.clear();
-                            } else {
-                                logger.finest(() -> "Step " + name + " threw exception. " + err.getMessage());
-                                listener.stream().filter(x -> {x.unregister(); return false; });
-                                source.onError(err);
+            bulkUnregister(listener);
+            result.timeout(timeout, TimeUnit.MILLISECONDS).subscribe(
+                    r -> {
+                        bulkUnregister(listener);
+                        logger.finest(() -> "Step " + name + " completed successfully, yielding a " + r.getClass().getName());
+                        source.onSuccess(r);
+                    },
+                    err -> {
+                        if (err instanceof StepDependencyNotMetException) {
+                            logger.finest(() -> "Step " + name + " dependency not met (deferred). " + err.getMessage());
+                            // If the initial invocation deferred the failure, the listener isn't registered yet
+                            if (listener.isEmpty()) {
+                                listener.add(engine.getEventBus().consumer("documentChanged." + uuid, delta ->
+                                        execute0(uuid, source, listener)
+                                ));
                             }
-                        });
-            } catch (StepDependencyNotMetException e) {
-                logger.finest(() -> "Step " + name + " dependency not met (immediate). " + e.getMessage());
-                started.clear();
-                // we'll try again with the next change
+                        } else {
+                            logger.finest(() -> "Step " + name + " threw exception. " + err.getMessage());
+                            bulkUnregister(listener);
+                            source.onError(err);
+                        }
+                    });
+        } catch (StepDependencyNotMetException e) {
+            logger.finest(() -> "Step " + name + " dependency not met (immediate). " + e.getMessage());
+            if (listener.isEmpty()) {
+                listener.add(engine.getEventBus().consumer("documentChanged." + uuid, delta ->
+                        execute0(uuid, source, listener)
+                ));
             }
+            // we'll try again with the next change
         }
+    }
+
+    /**
+     * Stop listening to everything in the list and clear the collection.
+     *
+     * @param listener
+     */
+    private static void bulkUnregister(Collection<MessageConsumer<Object>> listener) {
+        listener.iterator().forEachRemaining(MessageConsumer::unregister);
+        listener.clear();
     }
 
     /**
