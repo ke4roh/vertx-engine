@@ -1,5 +1,7 @@
 package com.redhat.vertx.pipeline;
 
+import com.redhat.vertx.pipeline.templates.NullTemplateProcessor;
+import com.redhat.vertx.pipeline.templates.TemplateProcessor;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -24,10 +26,16 @@ import java.util.stream.Stream;
 public class Environment extends JsonObject {
     private final JsonObject env;
     private final JsonObject doc;
+    private final TemplateProcessor templateProcessor;
 
     public Environment(JsonObject doc, JsonObject env) {
+        this(doc,env,new NullTemplateProcessor());
+    }
+
+    public Environment(JsonObject doc, JsonObject env, TemplateProcessor templateProcessor) {
         this.doc = doc;
         this.env = env;
+        this.templateProcessor = templateProcessor;
     }
 
     @Override
@@ -165,8 +173,7 @@ public class Environment extends JsonObject {
     }
 
     private String applyTemplate(String s) {
-        // TODO make this look for variables and substitute
-        return s;
+        return templateProcessor.applyTemplate(this,s);
     }
 
     @Override
@@ -402,12 +409,13 @@ public class Environment extends JsonObject {
         if (!super.equals(o)) return false;
         Environment entries = (Environment) o;
         return Objects.equals(env, entries.env) &&
-                Objects.equals(doc, entries.doc);
+                Objects.equals(doc, entries.doc) &&
+                Objects.equals(templateProcessor, entries.templateProcessor);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(env, doc);
+        return Objects.hash(env, doc, templateProcessor);
     }
 
     @Override
