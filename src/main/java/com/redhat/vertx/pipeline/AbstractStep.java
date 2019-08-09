@@ -1,13 +1,19 @@
 package com.redhat.vertx.pipeline;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import com.redhat.vertx.Engine;
+import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.reactivex.SingleEmitter;
+import io.reactivex.disposables.Disposable;
 import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.core.eventbus.Message;
 import io.vertx.reactivex.core.eventbus.MessageConsumer;
 
 /**
@@ -20,7 +26,6 @@ public abstract class AbstractStep implements Step {
     protected Engine engine;
     protected String name;
     private long timeout;
-    private Map<String, MessageConsumer<Object>> retryListeners;
 
     @Override
     public void init(Engine engine, JsonObject config) {
@@ -29,7 +34,6 @@ public abstract class AbstractStep implements Step {
         vars = config.getJsonObject("vars", new JsonObject());
         registerTo = config.getString("register", "greeting");
         timeout = config.getLong("timeout_ms", 5000l);
-        retryListeners = new ConcurrentHashMap<>();
     }
 
     /**
@@ -47,7 +51,7 @@ public abstract class AbstractStep implements Step {
     @Override
     public final Single<Object> execute(String uuid) {
         return Single.create(source -> {
-            execute0(uuid, source);
+            execute0(uuid, source, new ArrayList<Disposable>(2));
         });
     }
 
@@ -55,7 +59,7 @@ public abstract class AbstractStep implements Step {
      * @param uuid   The UUID of the document to be operated on
      * @param source The SingleEmitter for the AbstractStep execution we're attmembempting to complete
      */
-    private void execute0(String uuid, SingleEmitter<Object> source) {
+    private void execute0(String uuid, SingleEmitter<Object> source, List<Disposable> listener) {
         /**
          * The gist of this function is:
          *
@@ -69,29 +73,31 @@ public abstract class AbstractStep implements Step {
          * }
          */
         Single<Object> result = executeSlow(new Environment(getDocument(uuid), vars));
-        result.subscribe(resultReturn -> {
+        List<Disposable> disposable = new ArrayList<>(1);
+        disposable.add(result
+                .timeout(timeout, TimeUnit.MILLISECONDS)
+                .subscribe(resultReturn -> {
                     logger.finest(() -> "Step " + name + " returned: " + resultReturn.toString());
-                    if (this.retryListeners.containsKey(uuid)) {
-                        this.retryListeners.remove(uuid).unregister();
-                    }
+                    listener.forEach(Disposable::dispose);
+                    disposable.forEach(Disposable::dispose);
+                    logger.finest(() -> "Removing from listener " + System.identityHashCode(listener) + " size=" +
+                            listener.size() + " disposables for step " + name + ".");
+                    listener.clear();
                     source.onSuccess(resultReturn);
                 },
                 err -> {
                     if (err instanceof StepDependencyNotMetException) {
-                        if (!this.retryListeners.containsKey(uuid)) {
-                            MessageConsumer<Object> retryListener = engine.getEventBus()
-                                    .consumer(EventBusMessage.DOCUMENT_CHANGED, msg -> {
-                                        if (msg.headers().get("uuid") != null && uuid.equals(msg.headers().get("uuid"))) {
-                                            execute0(uuid, source);
-                                        }
-                                    });
-
-                            this.retryListeners.put(uuid, retryListener);
+                        if (listener.isEmpty()) {
+                            logger.finest(() -> "Step " + name + " listening for a change.");
+                            listener.add(engine.getEventBus()
+                                    .consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable()
+                                    .filter(msg -> uuid.equals(msg.headers().get("uuid")))
+                                    .subscribe(msg -> execute0(uuid, source, listener)));
                         }
                     } else if (err != null) {
                         source.tryOnError(err);
                     }
-                }).dispose();
+                }));
     }
 
     /**

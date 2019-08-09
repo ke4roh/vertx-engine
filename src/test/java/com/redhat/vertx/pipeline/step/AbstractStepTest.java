@@ -11,12 +11,15 @@ import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.util.logging.Logger;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(VertxExtension.class)
 public class AbstractStepTest {
 
     public static class Concat extends AbstractStep {
+        Logger logger = Logger.getLogger(this.getClass().getName());
         private String append;
         private String from;
 
@@ -30,8 +33,10 @@ public class AbstractStepTest {
         @Override
         public Object execute(JsonObject doc) throws StepDependencyNotMetException {
             if (!doc.containsKey(from)) {
+                logger.finest(() -> "Step " + name + " Dependency not met " + from);
                 throw new StepDependencyNotMetException(from);
             }
+            logger.finest(() -> "Step " + name + " executing.");
             String base = doc.getString(from);
             return base + append;
         }
