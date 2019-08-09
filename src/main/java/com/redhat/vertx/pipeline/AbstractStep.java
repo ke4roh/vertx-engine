@@ -1,17 +1,14 @@
 package com.redhat.vertx.pipeline;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
+
 import com.redhat.vertx.Engine;
-import io.reactivex.Maybe;
 import io.reactivex.Single;
 import io.reactivex.SingleEmitter;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.eventbus.MessageConsumer;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 
 /**
  * Abstract step offers code for managing steps that might execute longer
@@ -23,14 +20,16 @@ public abstract class AbstractStep implements Step {
     protected Engine engine;
     protected String name;
     private long timeout;
+    private Map<String, MessageConsumer<Object>> retryListeners;
 
     @Override
     public void init(Engine engine, JsonObject config) {
         this.engine = engine;
         name = config.getString("name");
-        vars = config.getJsonObject("vars",new JsonObject());
-        registerTo = config.getString("register","greeting");
-        timeout = config.getLong("timeout_ms",5000l);
+        vars = config.getJsonObject("vars", new JsonObject());
+        registerTo = config.getString("register", "greeting");
+        timeout = config.getLong("timeout_ms", 5000l);
+        retryListeners = new ConcurrentHashMap<>();
     }
 
     /**
@@ -41,24 +40,22 @@ public abstract class AbstractStep implements Step {
      *     <li>Retry the step whose dependencies are not met when a change happens</li>
      *     <li>Fetch the document from the engine</li>
      * </ul>
+     *
      * @param uuid the key for the document being built (get it from the engine)
      * @return
      */
     @Override
     public final Single<Object> execute(String uuid) {
         return Single.create(source -> {
-            List<MessageConsumer<Object>> listener = new ArrayList<>();
-            execute0(uuid,source, listener);
+            execute0(uuid, source);
         });
     }
 
     /**
-     *
-     * @param uuid The UUID of the document to be operated on
+     * @param uuid   The UUID of the document to be operated on
      * @param source The SingleEmitter for the AbstractStep execution we're attmembempting to complete
-     * @param listener (A container for) the listener to document change events so that it can be unsubscribed
      */
-    private void execute0(String uuid, SingleEmitter<Object> source, Collection<MessageConsumer<Object>> listener) {
+    private void execute0(String uuid, SingleEmitter<Object> source) {
         /**
          * The gist of this function is:
          *
@@ -71,55 +68,33 @@ public abstract class AbstractStep implements Step {
          *    register a listener and defer execution until after a change
          * }
          */
-        try {
-            Single<Object> result = executeSlow(new Environment(getDocument(uuid),vars));
-            logger.finest(() -> "Step " + name + " gave a single.");
+        Single<Object> result = executeSlow(new Environment(getDocument(uuid), vars));
+        result.subscribe(resultReturn -> {
+                    logger.finest(() -> "Step " + name + " returned: " + resultReturn.toString());
+                    if (this.retryListeners.containsKey(uuid)) {
+                        this.retryListeners.remove(uuid).unregister();
+                    }
+                    source.onSuccess(resultReturn);
+                },
+                err -> {
+                    if (err instanceof StepDependencyNotMetException) {
+                        if (!this.retryListeners.containsKey(uuid)) {
+                            MessageConsumer<Object> retryListener = engine.getEventBus()
+                                    .consumer(EventBusMessage.DOCUMENT_CHANGED, msg -> {
+                                        if (msg.headers().get("uuid") != null && uuid.equals(msg.headers().get("uuid"))) {
+                                            execute0(uuid, source);
+                                        }
+                                    });
 
-            bulkUnregister(listener);
-            result.timeout(timeout, TimeUnit.MILLISECONDS).subscribe(
-                    r -> {
-                        bulkUnregister(listener);
-                        logger.finest(() -> "Step " + name + " completed successfully, yielding a " + r.getClass().getName());
-                        source.onSuccess(r);
-                    },
-                    err -> {
-                        if (err instanceof StepDependencyNotMetException) {
-                            logger.finest(() -> "Step " + name + " dependency not met (deferred). " + err.getMessage());
-                            // If the initial invocation deferred the failure, the listener isn't registered yet
-                            if (listener.isEmpty()) {
-                                listener.add(engine.getEventBus().consumer("documentChanged." + uuid, delta ->
-                                        execute0(uuid, source, listener)
-                                ));
-                            }
-                        } else {
-                            logger.finest(() -> "Step " + name + " threw exception. " + err.getMessage());
-                            bulkUnregister(listener);
-                            source.onError(err);
+                            this.retryListeners.put(uuid, retryListener);
                         }
-                    });
-        } catch (StepDependencyNotMetException e) {
-            logger.finest(() -> "Step " + name + " dependency not met (immediate). " + e.getMessage());
-            if (listener.isEmpty()) {
-                listener.add(engine.getEventBus().consumer("documentChanged." + uuid, delta ->
-                        execute0(uuid, source, listener)
-                ));
-            }
-            // we'll try again with the next change
-        }
+                    } else if (err != null) {
+                        source.tryOnError(err);
+                    }
+                }).dispose();
     }
 
     /**
-     * Stop listening to everything in the list and clear the collection.
-     *
-     * @param listener
-     */
-    private static void bulkUnregister(Collection<MessageConsumer<Object>> listener) {
-        listener.iterator().forEachRemaining(MessageConsumer::unregister);
-        listener.clear();
-    }
-
-    /**
-     *
      * @param uuid
      * @return The document (without local step variables) from the engine, based on the given UUID
      */
@@ -145,8 +120,12 @@ public abstract class AbstractStep implements Step {
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
      * @throws StepDependencyNotMetException
      */
-    public Single<Object> executeSlow(JsonObject doc) throws StepDependencyNotMetException {
-        return Single.just(execute(doc));
+    public Single<Object> executeSlow(JsonObject doc) {
+        try {
+            return Single.just(execute(doc));
+        } catch (StepDependencyNotMetException e) {
+            return Single.error(e);
+        }
     }
 
     /**
