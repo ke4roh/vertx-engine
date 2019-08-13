@@ -2,25 +2,25 @@
   {
     "name":"tokenize",
     "class": "com.redhat.vertx.pipeline.steps.Copy",
+    "register":"words",
     "vars": {
-        "register":"words",
-        "from":"{{ doc['intro']|split() }}"
+        "from":"{{ doc['intro']|split|tojson }}"
     }
   },
   {
     "name":"first word",
     "class": "com.redhat.vertx.pipeline.steps.Copy",
+    "register":"first_word",
     "vars": {
-      "register":"first_word",
-      "from":"{{ words[0] }}"
+      "from":"{{ doc.words[0] }}"
     }
   },
   {
     "name":"fourth word",
     "class": "com.redhat.vertx.pipeline.steps.Copy",
+    "register":"fourth_word",
     "vars": {
-      "register":"fourth_word",
-      "from":"{{ words[3] }}"
+      "from":"{{ doc.words[3] }}"
     }
   }
 ]
