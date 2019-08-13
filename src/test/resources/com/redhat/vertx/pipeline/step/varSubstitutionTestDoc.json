@@ -1,0 +1,9 @@
+{
+  "intro":"This should not {{var}} be substituted",
+  "fox":"quick",
+  "list":[1,2,"three"],
+  "dict":{
+    "a":"aardvark",
+    "b":"binary"
+  }
+}

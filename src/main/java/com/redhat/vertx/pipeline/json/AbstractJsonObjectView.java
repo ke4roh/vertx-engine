@@ -1,7 +1,5 @@
-package com.redhat.vertx.pipeline;
+package com.redhat.vertx.pipeline.json;
 
-import com.redhat.vertx.pipeline.templates.NullTemplateProcessor;
-import com.redhat.vertx.pipeline.templates.TemplateProcessor;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -11,31 +9,17 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
- * An unmodifiable view on the JsonObject "doc" passed in, with the JsonObject "env" overlaid in front of it.
- * The order of the resulting keys is all the keys from the document, in their order, followed by
- * all the keys only in the environment, in their order.
+ * This is an unmodifiable JsonObject view onto another JsonObject.
+ * The map belonging to <code>this</code> JsonObject is not used.
  *
- * This extends JsonObject for compatibility, but the functionality of JsonObject is delegated to the objects passed in.
- * The responsibilities of this class are:
- * <ul>
- *     <li>Handle requests for content from the environment</li>
- *     <li>Get data from variables if necessary</li>
- *     <li>Perform template substitution on environment contents</li>
- * </ul>
+ * Behavior can be changed by overriding the {@link #getValue(String)},
+ * {@link #containsKey(String)}, and {@link #keySet()} methods.
  */
-public class Environment extends JsonObject {
-    private final JsonObject env;
-    private final JsonObject doc;
-    private final TemplateProcessor templateProcessor;
+public abstract class AbstractJsonObjectView extends JsonObject {
+    private JsonObject obj;
 
-    public Environment(JsonObject doc, JsonObject env) {
-        this(doc,env,new NullTemplateProcessor());
-    }
-
-    public Environment(JsonObject doc, JsonObject env, TemplateProcessor templateProcessor) {
-        this.doc = doc;
-        this.env = env;
-        this.templateProcessor = templateProcessor;
+    public AbstractJsonObjectView(JsonObject obj) {
+        this.obj = obj;
     }
 
     @Override
@@ -96,7 +80,7 @@ public class Environment extends JsonObject {
 
     @Override
     public Object getValue(String key) {
-        return getValue(key, null);
+        return obj.getValue(key);
     }
 
     @Override
@@ -157,28 +141,13 @@ public class Environment extends JsonObject {
 
     @Override
     public Object getValue(String key, Object def) {
-        if (!containsKey(key)) {
-            return def;
-        } else {
-            if (env.containsKey(key)) {
-                Object o = env.getValue(key);
-                if (o instanceof String) {
-                    o = applyTemplate((String)o);
-                }
-                return o;
-            } else {
-                return doc.getValue(key);
-            }
-        }
+        return containsKey(key) ? getValue(key) : def;
     }
 
-    private String applyTemplate(String s) {
-        return templateProcessor.applyTemplate(this,s);
-    }
 
     @Override
     public boolean containsKey(String key) {
-        return doc.containsKey(key) || env.containsKey(key);
+        return obj.containsKey(key);
     }
 
     @Override
@@ -299,14 +268,18 @@ public class Environment extends JsonObject {
         return new JsonObject(getMap());
     }
 
+    public Set<String> keySet() {
+        return obj.getMap().keySet();
+    }
+
     @Override
     public Map<String, Object> getMap() {
         return new AbstractMap<>() {
+            Set<String> keySet = AbstractJsonObjectView.this.keySet();
+
             @Override
             public Set<String> keySet() {
-                Set<String> keySet = new LinkedHashSet<>(doc.getMap().keySet());
-                keySet.addAll(env.getMap().keySet());
-                return Collections.unmodifiableSet(keySet);
+                return keySet;
             }
 
             @Override
@@ -315,7 +288,7 @@ public class Environment extends JsonObject {
                     @Override
                     public Iterator<Entry<String, Object>> iterator() {
                         return new Iterator<Entry<String, Object>>() {
-                            Iterator<String> keys = keySet().iterator();
+                            Iterator<String> keys = keySet.iterator();
                             @Override
                             public boolean hasNext() {
                                 return keys.hasNext();
@@ -348,14 +321,14 @@ public class Environment extends JsonObject {
 
                     @Override
                     public int size() {
-                        return 0;
+                        return keySet.size();
                     }
                 };
             }
 
             @Override
             public Object get(Object key) {
-                Object o = Environment.this.getValue((String)key);
+                Object o = AbstractJsonObjectView.this.getValue((String)key);
                 if (o instanceof JsonObject) {
                     return ((JsonObject) o).getMap();
                 } else if (o instanceof JsonArray) {
@@ -367,7 +340,7 @@ public class Environment extends JsonObject {
 
             @Override
             public int size() {
-                return keySet().size();
+                return keySet.size();
             }
         };
     }
@@ -394,7 +367,7 @@ public class Environment extends JsonObject {
 
     @Override
     public boolean isEmpty() {
-        return doc.isEmpty() && env.isEmpty();
+        return obj.isEmpty();
     }
 
     @Override
@@ -407,15 +380,13 @@ public class Environment extends JsonObject {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
-        Environment entries = (Environment) o;
-        return Objects.equals(env, entries.env) &&
-                Objects.equals(doc, entries.doc) &&
-                Objects.equals(templateProcessor, entries.templateProcessor);
+        AbstractJsonObjectView a = (AbstractJsonObjectView) o;
+        return Objects.equals(obj, a.obj);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(env, doc, templateProcessor);
+        return Objects.hash(obj);
     }
 
     @Override
@@ -427,4 +398,5 @@ public class Environment extends JsonObject {
     public int readFromBuffer(int pos, Buffer buffer) {
         throw new UnsupportedOperationException();
     }
+
 }

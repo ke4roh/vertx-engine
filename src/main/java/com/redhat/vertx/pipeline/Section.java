@@ -25,6 +25,7 @@ public class Section implements Step {
 
     private Step buildStep(JsonObject def) {
         try {
+            @SuppressWarnings("unchecked")
             Class<? extends Step> klass = (Class<? extends Step>) Class.forName(def.getString("class"));
             return klass.getDeclaredConstructor((Class[]) null).newInstance();
         } catch (ReflectiveOperationException e) {

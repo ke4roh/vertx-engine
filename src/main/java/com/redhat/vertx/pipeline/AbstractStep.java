@@ -3,18 +3,18 @@ package com.redhat.vertx.pipeline;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import com.redhat.vertx.Engine;
-import io.reactivex.Observable;
+import com.redhat.vertx.pipeline.json.JmesPathJsonObject;
+import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
+import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import io.reactivex.Single;
 import io.reactivex.SingleEmitter;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.vertx.core.json.JsonObject;
-import io.vertx.reactivex.core.eventbus.Message;
-import io.vertx.reactivex.core.eventbus.MessageConsumer;
 
 /**
  * Abstract step offers code for managing steps that might execute longer
@@ -72,8 +72,8 @@ public abstract class AbstractStep implements Step {
          *    register a listener and defer execution until after a change
          * }
          */
-        Single<Object> result = executeSlow(new Environment(getDocument(uuid), vars));
-        List<Disposable> disposable = new ArrayList<>(1);
+        Single<Object> result = executeSlow(getEnvironment(uuid));
+        List<Disposable> disposable = new ArrayList<>(1);  // TODO dispose properly
         disposable.add(result
                 .timeout(timeout, TimeUnit.MILLISECONDS)
                 .subscribe(resultReturn -> {
@@ -100,6 +100,12 @@ public abstract class AbstractStep implements Step {
                 }));
     }
 
+    private JsonObject getEnvironment(String uuid) {
+         JsonObject vars = this.vars.copy();
+         vars.put("doc",getDocument(uuid));
+         return new TemplatedJsonObject(new JmesPathJsonObject(vars),new JinjaTemplateProcessor(),"doc");
+    }
+
     /**
      * @param uuid
      * @return The document (without local step variables) from the engine, based on the given UUID
@@ -111,24 +117,28 @@ public abstract class AbstractStep implements Step {
     /**
      * Override this if the work is non-blocking.
      *
-     * @param doc
+     * @param env A {@link JsonObject} consisting of the variables for this step, plus a special one called "doc"
+     *            containing the document being constructed.
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
      * @throws StepDependencyNotMetException
      */
-    public Object execute(JsonObject doc) throws StepDependencyNotMetException {
+    public Object execute(JsonObject env) throws StepDependencyNotMetException {
         return null;
     }
 
     /**
      * Override this if the work is slow enough to need to return the result later.
      *
-     * @param doc An {@link Environment} consisting of the document with local step variables applied
+     * @param env A {@link JsonObject} consisting of the variables for this step, plus a special one called "doc"
+     *            containing the document being constructed.
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
      * @throws StepDependencyNotMetException
      */
-    public Single<Object> executeSlow(JsonObject doc) {
+    public Single<Object> executeSlow(JsonObject env) {
         try {
-            return Single.just(execute(doc));
+            Object rval = execute(env);
+            ObjectHelper.requireNonNull(rval,"Step " + name + " rendered null (not allowed).");
+            return Single.just(env);
         } catch (StepDependencyNotMetException e) {
             return Single.error(e);
         }

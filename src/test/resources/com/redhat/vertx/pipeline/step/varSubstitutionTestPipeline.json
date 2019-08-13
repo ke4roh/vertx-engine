@@ -1,0 +1,26 @@
+[
+  {
+    "name":"tokenize",
+    "class": "com.redhat.vertx.pipeline.steps.Copy",
+    "vars": {
+        "register":"words",
+        "from":"{{ doc['intro']|split() }}"
+    }
+  },
+  {
+    "name":"first word",
+    "class": "com.redhat.vertx.pipeline.steps.Copy",
+    "vars": {
+      "register":"first_word",
+      "from":"{{ words[0] }}"
+    }
+  },
+  {
+    "name":"fourth word",
+    "class": "com.redhat.vertx.pipeline.steps.Copy",
+    "vars": {
+      "register":"fourth_word",
+      "from":"{{ words[3] }}"
+    }
+  }
+]
