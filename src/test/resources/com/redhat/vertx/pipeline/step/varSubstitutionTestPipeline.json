@@ -4,7 +4,7 @@
     "class": "com.redhat.vertx.pipeline.steps.Copy",
     "register":"words",
     "vars": {
-        "from":"{{ doc['intro']|split|tojson }}"
+        "from":"{{ doc.intro|split|tojson }}"
     }
   },
   {

@@ -1,5 +1,6 @@
 package com.redhat.vertx.pipeline.json;
 
+import com.redhat.vertx.pipeline.templates.NullTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.TemplateProcessor;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -31,20 +32,18 @@ public class TemplatedJsonObject extends AbstractJsonObjectView {
 
     @Override
     public boolean containsKey(String key) {
-        return super.containsKey(key);
+        return super.containsKey(key) || (getValue(key) != null);
     }
 
     @Override
     public Object getValue(String key) {
-        Object val = super.containsKey(key) ? super.getValue(key) :
-            templateProcessor.applyTemplate(context, key);
+        boolean tryTemplate = !protectedKeys.contains(key) && !super.containsKey(key);
+        Object val = tryTemplate?templateProcessor.applyTemplate(context, key):super.getValue(key);
 
-        if (!protectedKeys.contains(key)) {
-            if (val instanceof JsonObject) {
-                val = new TemplatedJsonObject((JsonObject) val, templateProcessor, context);
-            } else if (val instanceof JsonArray) {
-                val = new TemplatedJsonArray((JsonArray) val, templateProcessor, context);
-            }
+        if (val instanceof JsonObject) {
+            val = new TemplatedJsonObject((JsonObject) val, protectedKeys.contains(key)? new NullTemplateProcessor():templateProcessor, context);
+        } else if (val instanceof JsonArray) {
+            val = new TemplatedJsonArray((JsonArray) val, protectedKeys.contains(key)? new NullTemplateProcessor():templateProcessor, context);
         }
         return val;
     }

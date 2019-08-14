@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class TestTemplatedJsonObject {
     @Test
-    public void testToString() {
+    public void testGetMap() {
         JsonObject jo = new JsonObject();
         jo.put("foo","bar");
 
@@ -32,5 +32,12 @@ public class TestTemplatedJsonObject {
         } catch (NoSuchElementException e) {
             // pass
         }
+    }
+
+    @Test
+    public void testGetDeepArray() {
+        JsonObject jo = new JsonObject("{\"doc\":{\"x\":\"foo\",\"words\":[\"The\",\"quick\",\"brown\"]}}");
+        TemplatedJsonObject tjo = new TemplatedJsonObject(jo,new JinjaTemplateProcessor());
+        assertEquals("quick",tjo.getValue("{{ doc.words[1] }}"));
     }
 }

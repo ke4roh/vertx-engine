@@ -2,6 +2,8 @@ package com.redhat.vertx.pipeline.templates;
 
 import com.hubspot.jinjava.Jinjava;
 import com.hubspot.jinjava.JinjavaConfig;
+import com.hubspot.jinjava.interpret.FatalTemplateErrorsException;
+import com.redhat.vertx.pipeline.json.JmesPathJsonObject;
 import io.vertx.core.json.JsonObject;
 import jinjava.de.odysseus.el.tree.impl.Builder;
 
@@ -18,6 +20,10 @@ public class JinjaTemplateProcessor implements TemplateProcessor {
 
     @Override
     public String applyTemplate(JsonObject env, String str) {
-        return jinjava.render(str,env.getMap());
+        try {
+            return jinjava.render(str, env.getMap());
+        } catch (FatalTemplateErrorsException e) {
+            return null; // TODO make this smarter about genuine errors vs. missing variables
+        }
     }
 }

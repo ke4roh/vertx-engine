@@ -11,6 +11,7 @@ import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,12 +33,11 @@ public class AbstractStepTest {
 
         @Override
         public Object execute(JsonObject doc) throws StepDependencyNotMetException {
-            if (!doc.containsKey(from)) {
-                logger.finest(() -> "Step " + name + " Dependency not met " + from);
-                throw new StepDependencyNotMetException(from);
+            String base = doc.getString(from);
+            if (base==null) {
+                throw new StepDependencyNotMetException();
             }
             logger.finest(() -> "Step " + name + " executing.");
-            String base = doc.getString(from);
             return base + append;
         }
     }
@@ -47,7 +47,7 @@ public class AbstractStepTest {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("abstract-step-test-pipeline.json"));
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject().put("x","");
-        JsonObject newDoc = e.execute(inputDoc).blockingGet();
+        JsonObject newDoc = e.execute(inputDoc).timeout(300, TimeUnit.MILLISECONDS).blockingGet();
         assertThat(newDoc.getString("c")).isEqualTo("m");
         assertThat(newDoc.getString("ca")).isEqualTo("me");
         assertThat(newDoc.getString("cat")).isEqualTo("meo");

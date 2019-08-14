@@ -16,7 +16,7 @@ import java.util.stream.Stream;
  * {@link #containsKey(String)}, and {@link #keySet()} methods.
  */
 public abstract class AbstractJsonObjectView extends JsonObject {
-    private JsonObject obj;
+    protected JsonObject obj;
 
     public AbstractJsonObjectView(JsonObject obj) {
         this.obj = obj;
@@ -86,7 +86,7 @@ public abstract class AbstractJsonObjectView extends JsonObject {
     @Override
     public String getString(String key, String def) {
         Object val = getValue(key,def);
-        return val == null? null: val.toString();
+        return val == null? def: val.toString();
     }
 
     @Override
@@ -356,9 +356,7 @@ public abstract class AbstractJsonObjectView extends JsonObject {
     }
 
     @Override
-    public int size() {
-        return getMap().size();
-    }
+    public int size() { return obj.size(); }
 
     @Override
     public JsonObject clear() {

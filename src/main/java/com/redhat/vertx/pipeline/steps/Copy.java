@@ -18,7 +18,6 @@ public class Copy extends AbstractStep {
             if (o == null) {
                 throw new StepDependencyNotMetException(key);
             }
-            // TODO: This may not be correct either, jinjava can't parse through JsonObject/JsonArray
             try {
                 return Json.decodeValue(o.toString());
             } catch (DecodeException e) {

@@ -1,7 +1,6 @@
 package com.redhat.vertx.pipeline;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -9,6 +8,7 @@ import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.JmesPathJsonObject;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
+import io.reactivex.Completable;
 import io.reactivex.Single;
 import io.reactivex.SingleEmitter;
 import io.reactivex.disposables.Disposable;
@@ -18,7 +18,7 @@ import io.vertx.core.json.JsonObject;
 /**
  * Abstract step offers code for managing steps that might execute longer
  */
-public abstract class AbstractStep implements Step {
+public abstract class AbstractStep extends DocBasedDisposableManager implements Step {
     protected Logger logger = Logger.getLogger(this.getClass().getName());
     protected String registerTo;
     protected JsonObject vars;
@@ -72,13 +72,11 @@ public abstract class AbstractStep implements Step {
          * }
          */
         Single<Object> result = executeSlow(getEnvironment(uuid));
-        List<Disposable> disposable = new ArrayList<>(1);  // TODO dispose properly
-        disposable.add(result
+        addDisposable(uuid,result
                 .timeout(timeout, TimeUnit.MILLISECONDS)
                 .subscribe(resultReturn -> {
                     logger.finest(() -> "Step " + name + " returned: " + resultReturn.toString());
                     listener.forEach(Disposable::dispose);
-                    disposable.forEach(Disposable::dispose);
                     logger.finest(() -> "Removing from listener " + System.identityHashCode(listener) + " size=" +
                             listener.size() + " disposables for step " + name + ".");
                     listener.clear();
@@ -102,7 +100,7 @@ public abstract class AbstractStep implements Step {
     private JsonObject getEnvironment(String uuid) {
          JsonObject vars = this.vars.copy();
          vars.put("doc",getDocument(uuid));
-         return new TemplatedJsonObject(new JmesPathJsonObject(vars),new JinjaTemplateProcessor(),"doc");
+         return new TemplatedJsonObject(vars,new JinjaTemplateProcessor(),"doc");
     }
 
     /**

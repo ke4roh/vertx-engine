@@ -56,7 +56,7 @@ public class Engine extends AbstractVerticle {
                 } else {
                     emitter.onComplete();
                 }
-            });
+            }); // TODO dispose properly
         });
     }
 
@@ -81,7 +81,7 @@ public class Engine extends AbstractVerticle {
         });
 
         return Single.create(source ->
-                pipeline.execute(uuid).subscribe((result, err) -> {
+                pipeline.execute(uuid).subscribe((result, err) -> { // TODO dispose properly
                     bus.publish(EventBusMessage.DOCUMENT_COMPLETED, uuid);
                     JsonObject doc = docCache.remove(uuid);
                     changeWatcher.unregister();

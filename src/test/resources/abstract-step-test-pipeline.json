@@ -4,7 +4,7 @@
     "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
     "vars":
     {
-      "from":"x",
+      "from":"{{doc.x}}",
       "append":"m"
     },
     "register": "c"
@@ -14,7 +14,7 @@
     "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
     "vars":
     {
-      "from":"c",
+      "from":"{{doc.c}}",
       "append":"e"
     },
     "register": "ca"
@@ -24,7 +24,7 @@
     "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
     "vars":
     {
-      "from":"ca",
+      "from":"{{doc.ca}}",
       "append":"o"
     },
     "register": "cat"
@@ -34,7 +34,7 @@
     "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
     "vars":
     {
-      "from":"cat",
+      "from":"{{doc.cat}}",
       "append":"w"
     },
     "register": "cats"

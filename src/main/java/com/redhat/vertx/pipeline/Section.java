@@ -1,11 +1,9 @@
 package com.redhat.vertx.pipeline;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import com.redhat.vertx.Engine;
+import com.redhat.vertx.pipeline.json.AbstractJsonObjectView;
 import io.reactivex.Completable;
 import io.reactivex.Single;
 import io.reactivex.disposables.Disposable;
@@ -14,7 +12,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.eventbus.EventBus;
 
-public class Section implements Step {
+public class Section extends DocBasedDisposableManager implements Step {
     private Engine engine;
     private String name;
     private List<Step> steps;
@@ -62,6 +60,7 @@ public class Section implements Step {
             for (Step step: steps) {
                 completable=executeStep(step,uuid).mergeWith(completable);
             }
+            addDisposable(uuid,
             completable.subscribe(()-> {
                 // this is a section
                 emitter.onSuccess(name);
@@ -69,7 +68,7 @@ public class Section implements Step {
             }, (err) -> {
                 emitter.tryOnError(err);
                 bus.publish(EventBusMessage.SECTION_ERRORED, new JsonArray(Arrays.asList(name, err.toString())), new DeliveryOptions().addHeader("uuid", uuid));
-            });
+            }));
         });
     }
 
@@ -94,20 +93,19 @@ public class Section implements Step {
     private Completable executeStep(Step step, String uuid) {
         return Completable.create(source -> {
             Single<Object> single = step.execute(uuid);
-            single.subscribe(onSuccess -> {
+            addDisposable(uuid,single.subscribe(onSuccess -> {
                 if (step.registerResultTo() != null) {
                     // register to get the doc changed event (Engine fires that)
                     EventBus bus = engine.getEventBus();
-                    final List<Disposable> consumer = new ArrayList<>(1);
-                    consumer.add(bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
+                    addDisposable(uuid,bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
                             .toObservable()
                             .filter(msg -> step.registerResultTo().equals(msg.body())) // identify the matching doc changed event (matching)
                             .subscribe(msg -> {
                                 source.onComplete(); // this step is complete
-                                consumer.stream().filter(d -> { d.dispose(); return false; });
+                                step.finish(uuid);
                             } , err -> {
                                 source.onError(err);
-                                consumer.stream().filter(d -> { d.dispose(); return false; });
+                                step.finish(uuid);
                             })
                     );
 
@@ -116,8 +114,9 @@ public class Section implements Step {
                     bus.publish(EventBusMessage.CHANGE_REQUEST, delta, new DeliveryOptions().addHeader("uuid", uuid));
                 } else { // No result to store, step is completed
                     source.onComplete();
+                    step.finish(uuid);
                 }
-            }, source::onError);
+            }, source::onError));
         });
     }
 }
