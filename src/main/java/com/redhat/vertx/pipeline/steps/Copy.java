@@ -4,9 +4,9 @@ import com.hubspot.jinjava.interpret.FatalTemplateErrorsException;
 import com.hubspot.jinjava.interpret.UnknownTokenException;
 import com.redhat.vertx.pipeline.AbstractStep;
 import com.redhat.vertx.pipeline.StepDependencyNotMetException;
+import io.vertx.core.json.DecodeException;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-
-import java.util.Iterator;
 
 public class Copy extends AbstractStep {
 
@@ -18,7 +18,12 @@ public class Copy extends AbstractStep {
             if (o == null) {
                 throw new StepDependencyNotMetException(key);
             }
-            return o;
+            // TODO: This may not be correct either, jinjava can't parse through JsonObject/JsonArray
+            try {
+                return Json.decodeValue(o.toString());
+            } catch (DecodeException e) {
+                return o;
+            }
         } catch (UnknownTokenException e) {
             throw new StepDependencyNotMetException(key);
         } catch (FatalTemplateErrorsException e) {

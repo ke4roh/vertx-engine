@@ -2,7 +2,6 @@ package com.redhat.vertx.pipeline;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -138,7 +137,7 @@ public abstract class AbstractStep implements Step {
         try {
             Object rval = execute(env);
             ObjectHelper.requireNonNull(rval,"Step " + name + " rendered null (not allowed).");
-            return Single.just(env);
+            return Single.just(rval);
         } catch (StepDependencyNotMetException e) {
             return Single.error(e);
         }

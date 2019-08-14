@@ -2,7 +2,6 @@ package com.redhat.vertx.pipeline.step;
 
 import com.redhat.ResourceUtils;
 import com.redhat.vertx.Engine;
-import io.reactivex.Single;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
