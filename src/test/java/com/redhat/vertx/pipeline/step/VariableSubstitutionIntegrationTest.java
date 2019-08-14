@@ -27,7 +27,7 @@ public class VariableSubstitutionIntegrationTest {
                         "com/redhat/vertx/pipeline/step/varSubstitutionTestPipeline.json"
                 ));
         vertx.rxDeployVerticle(engine).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
-        JsonObject d2 = engine.execute(doc).timeout(300, TimeUnit.MINUTES).blockingGet();  // TODO faster
+        JsonObject d2 = engine.execute(doc).timeout(300, TimeUnit.MILLISECONDS).blockingGet();  // TODO faster
         assertEquals("This",d2.getString("first_word"));
         assertEquals("{{var}}", d2.getString("fourth_word"));
     }

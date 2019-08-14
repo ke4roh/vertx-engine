@@ -1,5 +1,6 @@
 package com.redhat.vertx.pipeline.json;
 
+import com.redhat.ResourceUtils;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.Test;
@@ -39,5 +40,27 @@ public class TestTemplatedJsonObject {
         JsonObject jo = new JsonObject("{\"doc\":{\"x\":\"foo\",\"words\":[\"The\",\"quick\",\"brown\"]}}");
         TemplatedJsonObject tjo = new TemplatedJsonObject(jo,new JinjaTemplateProcessor());
         assertEquals("quick",tjo.getValue("{{ doc.words[1] }}"));
+    }
+
+    @Test
+    public void testSplit() {
+        JsonObject jo = new JsonObject("{\"doc\":{\"x\":\"foo\",\"intro\":\"The quick brown fox\"}}");
+        TemplatedJsonObject tjo = new TemplatedJsonObject(jo,new JinjaTemplateProcessor());
+        assertEquals("[\"The\",\"quick\",\"brown\",\"fox\"]",tjo.getValue("{{ doc.intro|split|tojson }}"));
+    }
+
+    @Test
+    public void testVarSubstitution() {
+        JsonObject doc = new JsonObject(
+                ResourceUtils.fileContentsFromResource(
+                        "com/redhat/vertx/pipeline/step/varSubstitutionTestDoc.json"
+                ));
+        JsonObject vars = new JsonObject("{\"from\":\"{{ doc.intro|split|tojson }}\", \"register\":\"cash\"}");
+        JsonObject env = vars.copy();
+        env.put("doc",doc);
+        TemplatedJsonObject tjo = new TemplatedJsonObject(env,new JinjaTemplateProcessor(),"doc");
+        assertNotNull(tjo.toString());
+        assertEquals(JsonObjectMapView.class,tjo.getMap().get("doc").getClass());
+        assertEquals("[\"This\",\"should\",\"not\",\"{{var}}\",\"be\",\"substituted\"]",tjo.getValue("{{ doc.intro|split|tojson }}"));
     }
 }

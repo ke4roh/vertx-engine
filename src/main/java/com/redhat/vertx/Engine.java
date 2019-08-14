@@ -48,6 +48,7 @@ public class Engine extends AbstractVerticle {
 
     @Override
     public Completable rxStart() {
+
         return Completable.create(emitter -> {
             DocumentLogger documentLogger = new DocumentLogger();
             vertx.rxDeployVerticle(documentLogger, new DeploymentOptions().setWorker(true).setWorkerPoolName("document-logger")).subscribe((s, throwable) -> {

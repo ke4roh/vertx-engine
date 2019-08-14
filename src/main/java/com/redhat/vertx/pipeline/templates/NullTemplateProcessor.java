@@ -1,10 +1,11 @@
 package com.redhat.vertx.pipeline.templates;
 
-import io.vertx.core.json.JsonObject;
+
+import java.util.Map;
 
 public class NullTemplateProcessor implements TemplateProcessor {
     @Override
-    public String applyTemplate(JsonObject env, String str) {
+    public String applyTemplate(Map<String,Object> env, String str) {
         return str;
     }
 }

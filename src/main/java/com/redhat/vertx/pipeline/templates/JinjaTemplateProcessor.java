@@ -2,13 +2,14 @@ package com.redhat.vertx.pipeline.templates;
 
 import com.hubspot.jinjava.Jinjava;
 import com.hubspot.jinjava.JinjavaConfig;
-import com.hubspot.jinjava.interpret.FatalTemplateErrorsException;
-import com.redhat.vertx.pipeline.json.JmesPathJsonObject;
-import io.vertx.core.json.JsonObject;
-import jinjava.de.odysseus.el.tree.impl.Builder;
+import com.hubspot.jinjava.interpret.RenderResult;
+import com.hubspot.jinjava.interpret.TemplateError;
+
+import java.util.Map;
+import java.util.logging.Logger;
 
 public class JinjaTemplateProcessor implements TemplateProcessor {
-
+    private Logger logger = Logger.getLogger(this.getClass().getName());
     private final Jinjava jinjava;
 
     public JinjaTemplateProcessor() {
@@ -19,11 +20,15 @@ public class JinjaTemplateProcessor implements TemplateProcessor {
     }
 
     @Override
-    public String applyTemplate(JsonObject env, String str) {
-        try {
-            return jinjava.render(str, env.getMap());
-        } catch (FatalTemplateErrorsException e) {
-            return null; // TODO make this smarter about genuine errors vs. missing variables
+    public String applyTemplate(Map<String,Object> env, String str) {
+        RenderResult rr = jinjava.renderForResult(str, env);
+        if (rr.hasErrors()) {
+            rr.getErrors().stream().filter(te -> te.getSeverity() == TemplateError.ErrorType.FATAL)
+                    .iterator().forEachRemaining(te ->logger.info(te.toString()));
+            rr.getErrors().stream().filter(te -> te.getSeverity() == TemplateError.ErrorType.WARNING)
+                    .iterator().forEachRemaining(te ->logger.fine(te.toString()));
+            return null;
         }
+        return rr.getOutput();
     }
 }

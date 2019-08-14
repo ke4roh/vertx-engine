@@ -83,7 +83,7 @@ public class TemplatedJsonArray extends JsonArray {
     public Object getValue(int index) {
         Object val = arr.getValue(index);
         if (val instanceof String) {
-            val=templateProcessor.applyTemplate(context,(String)val);
+            val=templateProcessor.applyTemplate(new JsonObjectMapView(context),(String)val);
         }
         if (val instanceof JsonObject) {
             val = new TemplatedJsonObject((JsonObject)val,templateProcessor,context);

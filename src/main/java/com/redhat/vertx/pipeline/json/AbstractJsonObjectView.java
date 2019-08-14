@@ -3,6 +3,7 @@ package com.redhat.vertx.pipeline.json;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
 import java.util.*;
@@ -268,81 +269,9 @@ public abstract class AbstractJsonObjectView extends JsonObject {
         return new JsonObject(getMap());
     }
 
-    public Set<String> keySet() {
-        return obj.getMap().keySet();
-    }
-
     @Override
     public Map<String, Object> getMap() {
-        return new AbstractMap<>() {
-            Set<String> keySet = AbstractJsonObjectView.this.keySet();
-
-            @Override
-            public Set<String> keySet() {
-                return keySet;
-            }
-
-            @Override
-            public Set<Entry<String, Object>> entrySet() {
-                return new AbstractSet<Entry<String, Object>>() {
-                    @Override
-                    public Iterator<Entry<String, Object>> iterator() {
-                        return new Iterator<Entry<String, Object>>() {
-                            Iterator<String> keys = keySet.iterator();
-                            @Override
-                            public boolean hasNext() {
-                                return keys.hasNext();
-                            }
-
-                            @Override
-                            public Entry<String, Object> next() {
-                                return new Entry<String, Object>() {
-                                    String key = keys.next();
-                                    Object val = get(key);
-
-                                    @Override
-                                    public String getKey() {
-                                        return key;
-                                    }
-
-                                    @Override
-                                    public Object getValue() {
-                                        return val;
-                                    }
-
-                                    @Override
-                                    public Object setValue(Object o) {
-                                        throw new UnsupportedOperationException();
-                                    }
-                                };
-                            }
-                        };
-                    }
-
-                    @Override
-                    public int size() {
-                        return keySet.size();
-                    }
-                };
-            }
-
-            @Override
-            public Object get(Object key) {
-                Object o = AbstractJsonObjectView.this.getValue((String)key);
-                if (o instanceof JsonObject) {
-                    return ((JsonObject) o).getMap();
-                } else if (o instanceof JsonArray) {
-                    return ((JsonArray) o).getList();
-                } else {
-                    return o;
-                }
-            }
-
-            @Override
-            public int size() {
-                return keySet.size();
-            }
-        };
+        return new JsonObjectMapView(this, obj.getMap().keySet());
     }
 
     @Override
@@ -351,7 +280,7 @@ public abstract class AbstractJsonObjectView extends JsonObject {
     }
 
     @Override
-    public Iterator<Map.Entry<String, Object>> iterator() {
+    public @NotNull Iterator<Map.Entry<String, Object>> iterator() {
         return getMap().entrySet().iterator();
     }
 
