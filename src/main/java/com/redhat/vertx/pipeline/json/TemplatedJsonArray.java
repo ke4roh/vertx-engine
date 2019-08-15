@@ -1,16 +1,15 @@
 package com.redhat.vertx.pipeline.json;
 
-import com.redhat.vertx.pipeline.templates.TemplateProcessor;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
-import org.jetbrains.annotations.NotNull;
-
 import java.time.Instant;
 import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Stream;
+
+import com.redhat.vertx.pipeline.templates.TemplateProcessor;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 
 public class TemplatedJsonArray extends JsonArray {
     private final JsonObject context;
@@ -188,7 +187,7 @@ public class TemplatedJsonArray extends JsonArray {
     public JsonArray clear() { throw new UnsupportedOperationException(); }
 
     @Override
-    public @NotNull Iterator<Object> iterator() {
+    public Iterator<Object> iterator() {
         return new Iterator<>() {
             int pos = 0;
             @Override
