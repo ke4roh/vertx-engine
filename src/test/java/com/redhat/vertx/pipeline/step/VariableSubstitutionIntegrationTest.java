@@ -1,16 +1,15 @@
 package com.redhat.vertx.pipeline.step;
 
+import java.util.concurrent.TimeUnit;
+
 import com.redhat.ResourceUtils;
 import com.redhat.vertx.Engine;
 import io.vertx.core.json.JsonObject;
-import io.vertx.junit5.Timeout;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -30,5 +29,6 @@ public class VariableSubstitutionIntegrationTest {
         JsonObject d2 = engine.execute(doc).timeout(300, TimeUnit.MILLISECONDS).blockingGet();  // TODO faster
         assertEquals("This",d2.getString("first_word"));
         assertEquals("{{var}}", d2.getString("fourth_word"));
+        testContext.completeNow();
     }
 }
