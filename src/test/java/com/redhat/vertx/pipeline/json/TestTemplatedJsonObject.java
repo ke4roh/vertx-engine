@@ -37,16 +37,16 @@ public class TestTemplatedJsonObject {
 
     @Test
     public void testGetDeepArray() {
-        JsonObject jo = new JsonObject("{\"doc\":{\"x\":\"foo\",\"words\":[\"The\",\"quick\",\"brown\"]}}");
+        JsonObject jo = new JsonObject("{\"doc\":{\"x\":\"foo\",\"words\":[\"The\",\"quick\",\"brown\"]},\"q\":\"{{ doc.words[1] }}\"}");
         TemplatedJsonObject tjo = new TemplatedJsonObject(jo,new JinjaTemplateProcessor());
-        assertEquals("quick",tjo.getValue("{{ doc.words[1] }}"));
+        assertEquals("quick",tjo.getValue("q"));
     }
 
     @Test
     public void testSplit() {
-        JsonObject jo = new JsonObject("{\"doc\":{\"x\":\"foo\",\"intro\":\"The quick brown fox\"}}");
+        JsonObject jo = new JsonObject("{\"doc\":{\"x\":\"foo\",\"intro\":\"The quick brown fox\"},\"q\":\"{{ doc.intro|split|tojson }}\"}");
         TemplatedJsonObject tjo = new TemplatedJsonObject(jo,new JinjaTemplateProcessor());
-        assertEquals("[\"The\",\"quick\",\"brown\",\"fox\"]",tjo.getValue("{{ doc.intro|split|tojson }}"));
+        assertEquals("[\"The\",\"quick\",\"brown\",\"fox\"]",tjo.getValue("q"));
     }
 
     @Test
@@ -55,12 +55,12 @@ public class TestTemplatedJsonObject {
                 ResourceUtils.fileContentsFromResource(
                         "com/redhat/vertx/pipeline/step/varSubstitutionTestDoc.json"
                 ));
-        JsonObject vars = new JsonObject("{\"from\":\"{{ doc.intro|split|tojson }}\", \"register\":\"cash\"}");
+        JsonObject vars = new JsonObject("{\"from\":\"{{ doc.intro|split|tojson }}\", \"register\":\"cash\", \"q\":\"{{ doc.intro|split|tojson }}\"}");
         JsonObject env = vars.copy();
         env.put("doc",doc);
         TemplatedJsonObject tjo = new TemplatedJsonObject(env,new JinjaTemplateProcessor(),"doc");
         assertNotNull(tjo.toString());
         assertEquals(JsonObjectMapView.class,tjo.getMap().get("doc").getClass());
-        assertEquals("[\"This\",\"should\",\"not\",\"{{var}}\",\"be\",\"substituted\"]",tjo.getValue("{{ doc.intro|split|tojson }}"));
+        assertEquals("[\"This\",\"should\",\"not\",\"{{var}}\",\"be\",\"substituted\"]",tjo.getValue("q"));
     }
 }

@@ -12,22 +12,21 @@ public class Copy extends AbstractStep {
 
     @Override
     public Object execute(JsonObject env) throws StepDependencyNotMetException {
-        String key = vars.getString("from");
         try {
-            Object o = env.getValue(key);
-            if (o == null) {
-                throw new StepDependencyNotMetException(key);
+            String s = env.getString("from");
+            if (s == null) {
+                throw new StepDependencyNotMetException("from");
             }
             try {
-                return Json.decodeValue(o.toString());
+                return Json.decodeValue(s);
             } catch (DecodeException e) {
-                return o;
+                return s;
             }
         } catch (UnknownTokenException e) {
-            throw new StepDependencyNotMetException(key);
+            throw new StepDependencyNotMetException("from");
         } catch (FatalTemplateErrorsException e) {
             logger.warning(e.getMessage());
-            throw new StepDependencyNotMetException(key);
+            throw new StepDependencyNotMetException("from");
         } catch (RuntimeException e) {
             logger.warning("Error finding var " + vars.getString("from") + ": " +  e.toString());
             throw e;

@@ -32,13 +32,15 @@ public class TemplatedJsonObject extends AbstractJsonObjectView {
 
     @Override
     public boolean containsKey(String key) {
-        return super.containsKey(key) || (getValue(key) != null);
+        return super.containsKey(key);
     }
 
     @Override
     public Object getValue(String key) {
-        boolean tryTemplate = !protectedKeys.contains(key) && !super.containsKey(key);
-        Object val = tryTemplate?templateProcessor.applyTemplate(new JsonObjectMapView(context), key):super.getValue(key);
+        Object val = obj.getValue(key);
+        if (val instanceof String) {
+            val = templateProcessor.applyTemplate(new JsonObjectMapView(context), (String)val);
+        }
 
         if (val instanceof JsonObject) {
             val = new TemplatedJsonObject((JsonObject) val, protectedKeys.contains(key)? new NullTemplateProcessor():templateProcessor, context);

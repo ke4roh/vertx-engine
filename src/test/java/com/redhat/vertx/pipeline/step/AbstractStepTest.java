@@ -21,24 +21,20 @@ public class AbstractStepTest {
 
     public static class Concat extends AbstractStep {
         Logger logger = Logger.getLogger(this.getClass().getName());
-        private String append;
-        private String from;
 
         @Override
         public void init(Engine engine, JsonObject config) {
             super.init(engine, config);
-            append = vars.getString("append");
-            from = vars.getString("from");
         }
 
         @Override
         public Object execute(JsonObject doc) throws StepDependencyNotMetException {
-            String base = doc.getString(from);
+            String base = doc.getString("from");
             if (base==null) {
                 throw new StepDependencyNotMetException();
             }
             logger.finest(() -> "Step " + name + " executing.");
-            return base + append;
+            return base + doc.getString("append");
         }
     }
 
