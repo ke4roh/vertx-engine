@@ -1,13 +1,15 @@
 package com.redhat.vertx.pipeline.json;
 
+import java.time.Instant;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.jetbrains.annotations.NotNull;
-
-import java.time.Instant;
-import java.util.*;
-import java.util.stream.Stream;
 
 /**
  * This is an unmodifiable JsonObject view onto another JsonObject.
@@ -280,7 +282,7 @@ public abstract class AbstractJsonObjectView extends JsonObject {
     }
 
     @Override
-    public @NotNull Iterator<Map.Entry<String, Object>> iterator() {
+    public Iterator<Map.Entry<String, Object>> iterator() {
         return getMap().entrySet().iterator();
     }
 

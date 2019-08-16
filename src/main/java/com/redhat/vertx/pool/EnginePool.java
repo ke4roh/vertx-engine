@@ -2,10 +2,9 @@ package com.redhat.vertx.pool;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 
 import com.redhat.vertx.Engine;
+import io.reactivex.Single;
 
 /**
  * This class is responsible for instantiating enginePool and making them available for execution of their
@@ -21,14 +20,17 @@ public class EnginePool {
         this.map = new HashMap<>();
     }
 
-    public CompletionStage<Engine> getEngineByPipelineName(String pipelineName) {
-        return resolver.getExecutablePipelineByName(pipelineName)
-                .thenComposeAsync(pipeline -> {
-                    if (!map.containsKey(pipeline)) {
-                        map.put(pipeline, new Engine(pipeline));
-                    }
+    public Single<Engine> getEngineByPipelineName(String pipelineName) {
+        return Single.create(emitter -> {
+            resolver.getExecutablePipelineByName(pipelineName)
+                    .subscribe(pipeline -> {
+                                if (!map.containsKey(pipeline)) {
+                                    map.put(pipeline, new Engine(pipeline));
+                                }
 
-                    return CompletableFuture.completedFuture(map.get(pipeline));
-                });
+                                emitter.onSuccess(map.get(pipeline));
+                            },
+                            emitter::tryOnError);
+        });
     }
 }

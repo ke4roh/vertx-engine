@@ -1,11 +1,10 @@
 package com.redhat.vertx.pool;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import io.reactivex.Single;
 
 public class SimplePipelineResolver implements PipelineResolver {
     @Override
-    public CompletionStage<String> getExecutablePipelineByName(String pipelineName) {
-        return CompletableFuture.completedFuture(pipelineName);
+    public Single<String> getExecutablePipelineByName(String pipelineName) {
+        return Single.just(pipelineName);
     }
 }
