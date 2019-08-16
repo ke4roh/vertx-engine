@@ -57,6 +57,19 @@
             <artifactId>jmespath-core</artifactId>
             <version>${jmespath.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.burt</groupId>
+            <artifactId>jmespath-core</artifactId>
+            <version>${jmespath.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest-library</artifactId>
+            <version>1.3</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- TODO ascii doclet -->
         <!-- TODO generate javadoc -->
@@ -70,6 +83,12 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
+            <version>${junit-jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-migrationsupport</artifactId>
             <version>${junit-jupiter.version}</version>
             <scope>test</scope>
         </dependency>
