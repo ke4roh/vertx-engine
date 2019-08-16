@@ -5,6 +5,7 @@ import java.util.*;
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.AbstractJsonObjectView;
 import io.reactivex.Completable;
+import io.reactivex.Maybe;
 import io.reactivex.Single;
 import io.reactivex.disposables.Disposable;
 import io.vertx.core.eventbus.DeliveryOptions;
@@ -48,14 +49,14 @@ public class Section extends DocBasedDisposableManager implements Step {
         this.steps=Collections.unmodifiableList(steps);
     }
 
-    public Single<Object> execute(String uuid) {
+    public Maybe<Object> execute(String uuid) {
         // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
         EventBus bus = engine.getEventBus();
         bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", uuid));
 
         // TODO is there a more succinct way to merge all this and fire a few events when it's done?
         // e.g. Observable.concat(steps.stream().map(s -> executeStep(s,uuid).toObservable()).iterator());
-        return Single.create(emitter -> {
+        return Maybe.create(emitter -> {
             Completable completable = Completable.complete();
             for (Step step: steps) {
                 completable=executeStep(step,uuid).mergeWith(completable);
@@ -63,7 +64,7 @@ public class Section extends DocBasedDisposableManager implements Step {
             addDisposable(uuid,
             completable.subscribe(()-> {
                 // this is a section
-                emitter.onSuccess(name);
+                emitter.onComplete();
                 bus.publish(EventBusMessage.SECTION_COMPLETED, name, new DeliveryOptions().addHeader("uuid", uuid));
             }, (err) -> {
                 emitter.tryOnError(err);
@@ -92,8 +93,8 @@ public class Section extends DocBasedDisposableManager implements Step {
      */
     private Completable executeStep(Step step, String uuid) {
         return Completable.create(source -> {
-            Single<Object> single = step.execute(uuid);
-            addDisposable(uuid,single.subscribe(onSuccess -> {
+            Maybe<Object> maybe = step.execute(uuid);
+            addDisposable(uuid,maybe.subscribe(onSuccess -> {
                 if (step.registerResultTo() != null) {
                     // register to get the doc changed event (Engine fires that)
                     EventBus bus = engine.getEventBus();
@@ -116,7 +117,10 @@ public class Section extends DocBasedDisposableManager implements Step {
                     source.onComplete();
                     step.finish(uuid);
                 }
-            }, source::onError));
+            }, source::onError, () -> {
+                source.onComplete();
+                step.finish(uuid);
+            }));
         });
     }
 }

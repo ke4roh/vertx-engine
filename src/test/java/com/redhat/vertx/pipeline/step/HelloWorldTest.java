@@ -9,6 +9,8 @@ import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.util.concurrent.TimeUnit;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(VertxExtension.class)
@@ -40,7 +42,7 @@ public class HelloWorldTest {
     public void checkHelloWorldNestedSections(Vertx vertx, VertxTestContext testContext) throws Exception {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("hello-world-nested-sections-pipeline.json"));
         vertx.rxDeployVerticle(e).blockingGet();
-        JsonObject newDoc = e.execute(new JsonObject()).blockingGet();
+        JsonObject newDoc = e.execute(new JsonObject()).timeout(300, TimeUnit.MILLISECONDS).blockingGet();
         assertThat(newDoc.getString(Engine.DOC_UUID)).isNotBlank();
         assertThat(newDoc.getString("greetings")).isEqualTo("hello, Jason");
         assertThat(newDoc.getString("nuisance")).isEqualTo("hello, Banana");

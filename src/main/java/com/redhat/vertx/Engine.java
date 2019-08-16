@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.redhat.vertx.pipeline.EventBusMessage;
 import com.redhat.vertx.pipeline.Section;
 import io.reactivex.Completable;
+import io.reactivex.Maybe;
 import io.reactivex.Single;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
@@ -82,16 +83,20 @@ public class Engine extends AbstractVerticle {
         });
 
         return Single.create(source ->
-                pipeline.execute(uuid).subscribe((result, err) -> { // TODO dispose properly
+                pipeline.execute(uuid).subscribe(result -> {
                     bus.publish(EventBusMessage.DOCUMENT_COMPLETED, uuid);
                     JsonObject doc = docCache.remove(uuid);
                     changeWatcher.unregister();
-                    if (err != null) {
-                        source.onError(err);
-                    } else {
-                        source.onSuccess(doc);
-                    }
-                }));
+                }, err -> {
+                            JsonObject doc = docCache.remove(uuid);
+                            changeWatcher.unregister();
+                            source.onError(err);
+                }, () -> {
+                            JsonObject doc = docCache.remove(uuid);
+                            changeWatcher.unregister();
+                            source.onSuccess(doc);
+                        }
+                ));
     }
 
     public JsonObject getDocument(String uuid) {
