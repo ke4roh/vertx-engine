@@ -165,6 +165,13 @@
                         <configuration>
                             <repoToken>${env.repo_token}</repoToken>
                         </configuration>
+                        <dependencies>
+                            <dependency>
+                                <groupId>javax.xml.bind</groupId>
+                                <artifactId>jaxb-api</artifactId>
+                                <version>2.3.1</version>
+                            </dependency>
+                        </dependencies>
                     </plugin>
                 </plugins>
             </build>
