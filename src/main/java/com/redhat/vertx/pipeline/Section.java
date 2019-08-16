@@ -1,13 +1,11 @@
 package com.redhat.vertx.pipeline;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.redhat.vertx.Engine;
-import com.redhat.vertx.pipeline.json.AbstractJsonObjectView;
 import io.reactivex.Completable;
 import io.reactivex.Maybe;
-import io.reactivex.Single;
-import io.reactivex.disposables.Disposable;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -54,32 +52,25 @@ public class Section extends DocBasedDisposableManager implements Step {
         EventBus bus = engine.getEventBus();
         bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", uuid));
 
-        // TODO is there a more succinct way to merge all this and fire a few events when it's done?
-        // e.g. Observable.concat(steps.stream().map(s -> executeStep(s,uuid).toObservable()).iterator());
         return Maybe.create(emitter -> {
-            Completable completable = Completable.complete();
-            for (Step step: steps) {
-                completable=executeStep(step,uuid).mergeWith(completable);
-            }
             addDisposable(uuid,
-            completable.subscribe(()-> {
-                // this is a section
-                emitter.onComplete();
-                bus.publish(EventBusMessage.SECTION_COMPLETED, name, new DeliveryOptions().addHeader("uuid", uuid));
-            }, (err) -> {
-                emitter.tryOnError(err);
-                bus.publish(EventBusMessage.SECTION_ERRORED, new JsonArray(Arrays.asList(name, err.toString())), new DeliveryOptions().addHeader("uuid", uuid));
-            }));
+                    Completable.concat(
+                            steps.stream().map(step -> executeStep(step,uuid)).collect(Collectors.toList())
+                    ).subscribe(()-> {
+                        // this is a section
+                        emitter.onComplete();
+                        bus.publish(EventBusMessage.SECTION_COMPLETED,
+                                name,
+                                new DeliveryOptions().addHeader("uuid", uuid)
+                        );
+                    }, (err) -> {
+                        emitter.tryOnError(err);
+                        bus.publish(EventBusMessage.SECTION_ERRORED,
+                                new JsonArray(Arrays.asList(name, err.toString())),
+                                new DeliveryOptions().addHeader("uuid", uuid)
+                        );
+                    }));
         });
-    }
-
-    /**
-     *
-     * @return null, since there typically isn't content resulting from the execution of a section
-     */
-    @Override
-    public String registerResultTo() {
-        return null;
     }
 
     /**
@@ -95,28 +86,25 @@ public class Section extends DocBasedDisposableManager implements Step {
         return Completable.create(source -> {
             Maybe<Object> maybe = step.execute(uuid);
             addDisposable(uuid,maybe.subscribe(onSuccess -> {
-                if (step.registerResultTo() != null) {
-                    // register to get the doc changed event (Engine fires that)
-                    EventBus bus = engine.getEventBus();
-                    addDisposable(uuid,bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
-                            .toObservable()
-                            .filter(msg -> step.registerResultTo().equals(msg.body())) // identify the matching doc changed event (matching)
-                            .subscribe(msg -> {
-                                source.onComplete(); // this step is complete
-                                step.finish(uuid);
-                            } , err -> {
-                                source.onError(err);
-                                step.finish(uuid);
-                            })
-                    );
+                JsonObject jo = (JsonObject)onSuccess;
+                String register = jo.getMap().keySet().iterator().next();
 
-                    // fire event to change the doc (Engine listens)
-                    JsonObject delta =  new JsonObject().put(step.registerResultTo(),onSuccess);
-                    bus.publish(EventBusMessage.CHANGE_REQUEST, delta, new DeliveryOptions().addHeader("uuid", uuid));
-                } else { // No result to store, step is completed
-                    source.onComplete();
-                    step.finish(uuid);
-                }
+                // register to get the doc changed event (Engine fires that)
+                EventBus bus = engine.getEventBus();
+                addDisposable(uuid,bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
+                        .toObservable()
+                        .filter(msg -> register.equals(msg.body())) // identify the matching doc changed event (matching)
+                        .subscribe(msg -> {
+                            source.onComplete(); // this step is complete
+                            step.finish(uuid);
+                        } , err -> {
+                            source.onError(err);
+                            step.finish(uuid);
+                        })
+                );
+
+                // fire event to change the doc (Engine listens)
+                bus.publish(EventBusMessage.CHANGE_REQUEST, onSuccess, new DeliveryOptions().addHeader("uuid", uuid));
             }, source::onError, () -> {
                 source.onComplete();
                 step.finish(uuid);

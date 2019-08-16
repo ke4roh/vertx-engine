@@ -5,32 +5,31 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import com.redhat.vertx.Engine;
-import com.redhat.vertx.pipeline.json.JmesPathJsonObject;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import io.reactivex.*;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.internal.functions.ObjectHelper;
 import io.vertx.core.json.JsonObject;
 
 /**
  * Abstract step offers code for managing steps that might execute longer
  */
 public abstract class AbstractStep extends DocBasedDisposableManager implements Step {
+
     protected Logger logger = Logger.getLogger(this.getClass().getName());
-    protected String registerTo;
     protected JsonObject vars;
     protected Engine engine;
     protected String name;
     private long timeout;
+    private String registerTo;
 
     @Override
     public void init(Engine engine, JsonObject config) {
         this.engine = engine;
         name = config.getString("name");
         vars = config.getJsonObject("vars", new JsonObject());
-        registerTo = config.getString("register", "greeting");
         timeout = config.getLong("timeout_ms", 5000l);
+        registerTo = config.getString("register");
     }
 
     /**
@@ -102,7 +101,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     }
 
     /**
-     * @param uuid
+     * @param uuid The UUID of the document under construction
      * @return The document (without local step variables) from the engine, based on the given UUID
      */
     protected JsonObject getDocument(String uuid) {
@@ -115,7 +114,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
      * @param env A {@link JsonObject} consisting of the variables for this step, plus a special one called "doc"
      *            containing the document being constructed.
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
-     * @throws StepDependencyNotMetException
+     * @throws StepDependencyNotMetException if this step should be retried later after the document has been changed
      */
     public Object execute(JsonObject env) throws StepDependencyNotMetException {
         return null;
@@ -127,25 +126,16 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
      * @param env A {@link JsonObject} consisting of the variables for this step, plus a special one called "doc"
      *            containing the document being constructed.
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
-     * @throws StepDependencyNotMetException
+
      */
-    public Maybe<Object> executeSlow(JsonObject env) {
+    protected Maybe<Object> executeSlow(JsonObject env) {
         try {
             Object rval = execute(env);
-            return (rval == null) ? Maybe.empty() : Maybe.just(rval);
+            return (rval == null || registerTo == null) ?
+                    Maybe.empty() :
+                    Maybe.just(new JsonObject().put(registerTo,rval));
         } catch (StepDependencyNotMetException e) {
             return Maybe.error(e);
         }
-    }
-
-    /**
-     * The json-compatible object will be stored at the key named by this field.  By default, this is
-     * found in the value of "register" in the step config.
-     *
-     * @return
-     */
-    @Override
-    public String registerResultTo() {
-        return registerTo;
     }
 }

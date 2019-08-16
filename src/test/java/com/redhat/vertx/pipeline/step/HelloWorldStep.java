@@ -17,15 +17,11 @@ public class HelloWorldStep implements Step {
 
     @Override
     public Maybe<Object> execute(String uuid) {
-        return Maybe.just("hello, " + name);
+        return Maybe.just(new JsonObject().put(registerTo,"hello, " + name));
     }
 
     @Override
     public void finish(String uuid) {
     }
 
-    @Override
-    public String registerResultTo() {
-        return registerTo;
-    }
 }
