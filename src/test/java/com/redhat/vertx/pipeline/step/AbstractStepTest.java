@@ -43,7 +43,7 @@ public class AbstractStepTest {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("abstract-step-test-pipeline.json"));
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject().put("x","");
-        JsonObject newDoc = e.execute(inputDoc).timeout(300, TimeUnit.MILLISECONDS).blockingGet();
+        JsonObject newDoc = e.execute(inputDoc).timeout(1, TimeUnit.SECONDS).blockingGet();
         assertThat(newDoc.getString("c")).isEqualTo("m");
         assertThat(newDoc.getString("ca")).isEqualTo("me");
         assertThat(newDoc.getString("cat")).isEqualTo("meo");
