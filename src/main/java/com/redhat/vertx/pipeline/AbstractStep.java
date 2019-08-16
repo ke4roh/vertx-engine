@@ -8,9 +8,7 @@ import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.JmesPathJsonObject;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
-import io.reactivex.Completable;
-import io.reactivex.Single;
-import io.reactivex.SingleEmitter;
+import io.reactivex.*;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.vertx.core.json.JsonObject;
@@ -48,8 +46,8 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
      * @return
      */
     @Override
-    public final Single<Object> execute(String uuid) {
-        return Single.create(source -> {
+    public final Maybe<Object> execute(String uuid) {
+        return Maybe.create(source -> {
             execute0(uuid, source, new ArrayList<Disposable>(2));
         });
     }
@@ -58,7 +56,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
      * @param uuid   The UUID of the document to be operated on
      * @param source The SingleEmitter for the AbstractStep execution we're attmembempting to complete
      */
-    private void execute0(String uuid, SingleEmitter<Object> source, List<Disposable> listener) {
+    private void execute0(String uuid, MaybeEmitter<Object> source, List<Disposable> listener) {
         /**
          * The gist of this function is:
          *
@@ -71,7 +69,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
          *    register a listener and defer execution until after a change
          * }
          */
-        Single<Object> result = executeSlow(getEnvironment(uuid));
+        Maybe<Object> result = executeSlow(getEnvironment(uuid));
         addDisposable(uuid,result
                 .timeout(timeout, TimeUnit.MILLISECONDS)
                 .subscribe(resultReturn -> {
@@ -131,13 +129,12 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
      * @throws StepDependencyNotMetException
      */
-    public Single<Object> executeSlow(JsonObject env) {
+    public Maybe<Object> executeSlow(JsonObject env) {
         try {
             Object rval = execute(env);
-            ObjectHelper.requireNonNull(rval,"Step " + name + " rendered null (not allowed).");
-            return Single.just(rval);
+            return (rval == null) ? Maybe.empty() : Maybe.just(rval);
         } catch (StepDependencyNotMetException e) {
-            return Single.error(e);
+            return Maybe.error(e);
         }
     }
 

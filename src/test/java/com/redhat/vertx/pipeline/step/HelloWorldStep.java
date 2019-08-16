@@ -2,7 +2,7 @@ package com.redhat.vertx.pipeline.step;
 
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.Step;
-import io.reactivex.Single;
+import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 
 public class HelloWorldStep implements Step {
@@ -16,8 +16,8 @@ public class HelloWorldStep implements Step {
     }
 
     @Override
-    public Single<Object> execute(String uuid) {
-        return Single.just("hello, " + name);
+    public Maybe<Object> execute(String uuid) {
+        return Maybe.just("hello, " + name);
     }
 
     @Override

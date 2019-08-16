@@ -6,6 +6,7 @@ import java.util.concurrent.CompletionStage;
 
 import com.redhat.vertx.Engine;
 import io.reactivex.Completable;
+import io.reactivex.Maybe;
 import io.reactivex.Single;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -35,7 +36,7 @@ public interface Step {
      * @return The (Json-compatible) object to be persisted as a memento of this execution.  It may be a string, int,
      * a JsonArray, JsonObject, etc.
      */
-    public Single<Object> execute(String uuid);
+    public Maybe<Object> execute(String uuid);
 
     /**
      *

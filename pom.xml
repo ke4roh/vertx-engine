@@ -14,13 +14,13 @@
         <maven.compiler.source>${maven.compiler.target}</maven.compiler.source>
         <assertj.version>3.11.1</assertj.version>
         <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
-        <maven-surefire-plugin.version>2.22.1</maven-surefire-plugin.version>
         <exec-maven-plugin.version>1.5.0</exec-maven-plugin.version>
         <vertx.version>3.7.1</vertx.version>
         <rxjava2.version>2.2.7</rxjava2.version>
         <junit-jupiter.version>5.4.0</junit-jupiter.version>
         <jinjava.version>2.5.2</jinjava.version>
         <jmespath.version>0.3.0</jmespath.version>
+        <repo.token>${env.repo_token}</repo.token>
         <!-- TODO: Do we need a verticle for this?? -->
     </properties>
 
@@ -104,7 +104,7 @@
                 <artifactId>coveralls-maven-plugin</artifactId>
                 <version>4.3.0</version>
                 <configuration>
-                    <repoToken>${env.repo_token}</repoToken>
+                    <repoToken>${repo.token}</repoToken>
                 </configuration>
             </plugin>
             <plugin>
