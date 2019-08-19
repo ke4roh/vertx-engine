@@ -155,7 +155,7 @@ public abstract class AbstractJsonObjectView extends JsonObject {
 
     @Override
     public Set<String> fieldNames() {
-        return super.fieldNames();
+        return obj.fieldNames();
     }
 
     @Override

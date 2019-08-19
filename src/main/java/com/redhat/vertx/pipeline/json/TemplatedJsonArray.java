@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import com.redhat.vertx.pipeline.templates.TemplateProcessor;
@@ -65,17 +66,19 @@ public class TemplatedJsonArray extends JsonArray {
     @Override
     public JsonArray getJsonArray(int index) {
         return (JsonArray)getValue(index);
-
     }
 
     @Override
     public byte[] getBinary(int index) {
-        return (byte[])getValue(index);
+        if (arr.hasNull(index)) {
+            return (byte[]) getValue(index);
+        }
+        return arr.getBinary(index);
     }
 
     @Override
     public Instant getInstant(int index) {
-        return (Instant)getValue(index);
+        return Instant.parse(getValue(index).toString());
     }
 
     @Override
@@ -145,7 +148,7 @@ public class TemplatedJsonArray extends JsonArray {
     @Override
     public boolean contains(Object value) {
         for (Object o:this) {
-            if (o == value || ( o != null && o.equals(value) )) {
+            if (Objects.equals(o, value)) {
                 return true;
             }
         }
