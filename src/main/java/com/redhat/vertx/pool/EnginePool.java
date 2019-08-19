@@ -1,9 +1,13 @@
 package com.redhat.vertx.pool;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.redhat.vertx.Engine;
+import io.reactivex.Completable;
+import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.vertx.reactivex.core.Vertx;
 
@@ -16,11 +20,13 @@ public class EnginePool {
     PipelineResolver resolver;
     Map<String, Engine> map;
     Vertx vertx;
+    List<String> verticleIds;
 
     public EnginePool(PipelineResolver resolver, Vertx vertx) {
         this.resolver = resolver;
         this.map = new HashMap<>();
         this.vertx = vertx;
+        this.verticleIds = new ArrayList<>();
     }
 
     public Single<Engine> getEngineByPipelineName(String pipelineName) {
@@ -33,13 +39,23 @@ public class EnginePool {
                                     e = new Engine(pipeline);
                                     final Engine engine=e;
                                     map.put(pipeline, e);
-                                    vertx.rxDeployVerticle(e).subscribe(s -> emitter.onSuccess(engine));
-                                    // TODO either make Engine a non-verticle, or find some way to un-register it later
+                                    vertx.rxDeployVerticle(e).subscribe(s -> {
+                                        emitter.onSuccess(engine);
+                                        verticleIds.add(s);
+                                    });
                                 } else {
                                     emitter.onSuccess(e);
                                 }
                             },
                             emitter::tryOnError);
         });
+    }
+
+    public Completable cleanup(String verticleId) {
+        return this.vertx.rxUndeploy(verticleId);
+    }
+
+    public Completable cleanupAll() {
+        return Observable.fromIterable(this.verticleIds).flatMapCompletable(this::cleanup);
     }
 }
