@@ -5,16 +5,21 @@ import java.util.concurrent.TimeUnit;
 
 import com.redhat.vertx.Engine;
 import io.reactivex.Single;
+import io.vertx.junit5.VertxExtension;
+import io.vertx.junit5.VertxTestContext;
+import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
+@ExtendWith(VertxExtension.class)
 public class EnginePoolTest {
 
     @Test
-    public void testWithFailingResolver() throws Exception {
-        EnginePool pool = new EnginePool(new FailingPipelineResolver());
+    public void testWithFailingResolver(Vertx vertx, VertxTestContext testContext) throws Exception {
+        EnginePool pool = new EnginePool(new FailingPipelineResolver(),vertx);
         Single<Engine> future = pool.getEngineByPipelineName("foo");
         CountDownLatch latch = new CountDownLatch(1);
         future.subscribe(
@@ -26,6 +31,7 @@ public class EnginePoolTest {
                 });
 
         latch.await(500, TimeUnit.MILLISECONDS);
+        testContext.completeNow();
     }
 
     public static class FailingPipelineResolver implements PipelineResolver {
