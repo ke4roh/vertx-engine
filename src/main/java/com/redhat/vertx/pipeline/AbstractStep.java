@@ -138,4 +138,8 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
             return Maybe.error(e);
         }
     }
+
+    void addDisposable(JsonObject env, Disposable disposable) {
+        super.addDisposable(env.getJsonObject("doc").getString(Engine.DOC_UUID), disposable);
+    }
 }
