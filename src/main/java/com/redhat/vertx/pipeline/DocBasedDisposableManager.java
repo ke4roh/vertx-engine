@@ -9,11 +9,11 @@ public abstract class DocBasedDisposableManager implements Step {
     private Map<String, Collection<Disposable>> disposables = new HashMap<>();
 
 
-    public void addDisposable(String uuid, Disposable disposable) {
+    protected void addDisposable(String uuid, Disposable disposable) {
         this.addDisposable(uuid,Arrays.asList(disposable));
     }
 
-    public void addDisposable(String uuid, Collection disposables) {
+    protected void addDisposable(String uuid, Collection disposables) {
         Collection d = this.disposables.getOrDefault(uuid,new ArrayList<>());
         this.disposables.put(uuid,d);
         d.addAll(disposables);
