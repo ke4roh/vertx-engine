@@ -4,7 +4,6 @@ import io.burt.jmespath.JmesPathRuntimeTest;
 import io.burt.jmespath.JmesPathType;
 import io.burt.jmespath.RuntimeConfiguration;
 import io.burt.jmespath.Adapter;
-import org.assertj.core.api.AbstractBooleanAssert;
 import org.assertj.core.api.AbstractIntegerAssert;
 import org.junit.Test;
 
