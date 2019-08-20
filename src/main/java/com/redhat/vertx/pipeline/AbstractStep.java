@@ -94,7 +94,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
                 }));
     }
 
-    private JsonObject getEnvironment(String uuid) {
+    protected JsonObject getEnvironment(String uuid) {
          JsonObject vars = this.vars.copy();
          vars.put("doc",getDocument(uuid));
          return new TemplatedJsonObject(vars,new JinjaTemplateProcessor(),"doc");
@@ -139,7 +139,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
         }
     }
 
-    void addDisposable(JsonObject env, Disposable disposable) {
+    protected void addDisposable(JsonObject env, Disposable disposable) {
         super.addDisposable(env.getJsonObject("doc").getString(Engine.DOC_UUID), disposable);
     }
 }
