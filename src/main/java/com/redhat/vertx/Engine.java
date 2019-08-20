@@ -14,6 +14,7 @@ import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.Vertx;
 import io.vertx.reactivex.core.eventbus.EventBus;
 import io.vertx.reactivex.core.eventbus.MessageConsumer;
 
@@ -44,6 +45,10 @@ public class Engine extends AbstractVerticle {
 
     public EventBus getEventBus() {
         return vertx.eventBus();
+    }
+
+    public Vertx getVertRx() {
+        return vertx;
     }
 
     @Override
