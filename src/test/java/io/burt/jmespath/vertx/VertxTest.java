@@ -1,16 +1,18 @@
 package io.burt.jmespath.vertx;
 
 import io.burt.jmespath.JmesPathRuntimeTest;
+import io.burt.jmespath.JmesPathType;
 import io.burt.jmespath.RuntimeConfiguration;
 import io.burt.jmespath.Adapter;
-import io.burt.jmespath.jcf.JcfRuntime;
+import org.assertj.core.api.AbstractBooleanAssert;
+import org.assertj.core.api.AbstractIntegerAssert;
 import org.junit.Test;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.time.Instant;
 import java.util.*;
 
+import static io.burt.jmespath.JmesPathType.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class VertxTest extends JmesPathRuntimeTest<Object> {
@@ -67,7 +69,7 @@ public class VertxTest extends JmesPathRuntimeTest<Object> {
     }
 
     @Test
-    public void testTruthy() throws NoSuchAlgorithmException {
+    public void testTruthy() {
         var list = Arrays.asList(false);
         var map = new HashMap<String, Object>();
         map.put("text","hi");
@@ -78,7 +80,96 @@ public class VertxTest extends JmesPathRuntimeTest<Object> {
         Arrays.asList(false,"",null,Collections.emptyList(),Collections.emptyMap()).stream().map(x -> toAdapted(rt,x))
                 .iterator().forEachRemaining(x-> assertThat(rt.isTruthy(x)).isFalse());
 
+        try {
+            rt.isTruthy(this);
+            assertThat(false).isTrue();
+        } catch (IllegalStateException e) {
+            // expected
+        }
+
     }
+
+    @Test
+    public void testTypeOf() {
+        var rt = createRuntime(RuntimeConfiguration.defaultConfiguration());
+        checkTypeOf(rt, 1,NUMBER);
+        checkTypeOf(rt, 1l,NUMBER);
+        checkTypeOf(rt, 1.1d,NUMBER);
+        checkTypeOf(rt, 1.1f,NUMBER);
+        checkTypeOf(rt, false,BOOLEAN);
+        checkTypeOf(rt, true,BOOLEAN);
+        checkTypeOf(rt, "lorem",STRING);
+        checkTypeOf(rt, 1,NUMBER);
+        checkTypeOf(rt, Arrays.asList(1,2,3),ARRAY);
+        checkTypeOf(rt, Collections.emptyMap(), OBJECT);
+
+        try {
+            rt.typeOf(this);
+            assertThat(false).isTrue();
+        } catch (IllegalStateException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testCompare() {
+        var rt = createRuntime(RuntimeConfiguration.defaultConfiguration());
+        compare(rt, "foo", "foo").isEqualTo(0);
+        compare(rt, "a", "b").isEqualTo("a".compareTo("b"));
+        compare(rt, "b", "a").isEqualTo("b".compareTo("a"));
+
+        compare(rt, 1, 1).isEqualTo(0);
+        compare(rt, 1, 2).isEqualTo(Integer.valueOf(1).compareTo(2));
+        compare(rt, 2, 1).isEqualTo(Integer.valueOf(2).compareTo(1));
+
+        compare(rt, 1.1d, 1.1d).isEqualTo(0);
+        compare(rt, 1.1d, 2.1d).isEqualTo(Double.valueOf(1.1d).compareTo(2.1d));
+        compare(rt, 2.1d, 1.1d).isEqualTo(Double.valueOf(2.1d).compareTo(1.1d));
+
+        compare(rt, 1l, 2.1d).isEqualTo(Double.valueOf(1l).compareTo(2.1d));
+
+        compare(rt, null, null).isEqualTo(0);
+
+        compare(rt, true, true).isEqualTo(0);
+        compare(rt, false, true).isEqualTo(-1);
+        compare(rt, true, false).isEqualTo(-1);
+
+        var array1 = Arrays.asList("a","b","c");
+        var array2 = Arrays.asList("do","re","mi");
+        compare(rt, array1, array1).isEqualTo(0);
+        compare(rt, array1, array2).isEqualTo(-1);
+        compare(rt, Collections.emptyList(), Collections.emptyList()).isEqualTo(0);
+        compare(rt, array1, Collections.emptyList()).isEqualTo(-1);
+        compare(rt, Collections.emptyList(), array1).isEqualTo(-1);
+
+
+        var map1 = new HashMap<String,Object>();
+        map1.put("lorem","ipsum");
+        var map2 = new HashMap<String,Object>();
+        map2.put("dolor","st");
+        compare(rt, map1, map1).isEqualTo(0);
+        compare(rt, map1, map2).isEqualTo(-1);
+        compare(rt, Collections.emptyMap(), Collections.emptyMap()).isEqualTo(0);
+        compare(rt, map1, Collections.emptyMap()).isEqualTo(-1);
+        compare(rt, Collections.emptyMap(), map1).isEqualTo(-1);
+
+        compare(rt, 1, map1).isEqualTo(-1);
+        compare(rt, "foo", 1).isEqualTo(-1);
+        compare(rt, 1, true).isEqualTo(-1);
+        compare(rt, 0, false).isEqualTo(-1);
+        compare(rt,"foo", array1).isEqualTo(-1);
+        compare(rt, null, false).isEqualTo(-1);
+    }
+
+    private AbstractIntegerAssert compare(Adapter<Object> rt, Object a, Object b) {
+      return assertThat(rt.compare(toAdapted(rt,a),toAdapted(rt,b)));
+    }
+
+    private void checkTypeOf(Adapter<Object> runtime, Object baseObj, JmesPathType type) {
+        Object convertedObj = toAdapted(runtime,baseObj);
+        assertThat(runtime.typeOf(convertedObj)).isEqualTo(type);
+    }
+
 
     private Object toAdapted(Adapter<Object> runtime, Object object) {
         if (object == null) {
