@@ -111,16 +111,22 @@ public class VertxRuntime extends JcfRuntime {
      */
     @Override
     public boolean isTruthy(Object value) {
-        if (value instanceof Boolean) {
-            return (Boolean)value;
-        } else if (value instanceof JsonArray) {
-            return ((JsonArray)value).size() > 0;
-        } else if (value instanceof JsonObject) {
-            return ((JsonObject)value).size() > 0;
-        } else if (value instanceof String) {
-            return ((String)value).length() > 0;
+        switch (typeOf(value)) {
+            case BOOLEAN:
+                return (Boolean)value;
+            case ARRAY:
+                return ((JsonArray)value).size() > 0;
+            case OBJECT:
+                return ((JsonObject)value).size() > 0;
+            case STRING:
+                return ((String)value).length() > 0;
+            case NULL:
+                return false;
+            case NUMBER:
+                return true;
+            default:
+                throw new IllegalStateException();
         }
-        return value != null;
     }
 
     @Override
