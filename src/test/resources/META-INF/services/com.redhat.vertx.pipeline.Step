@@ -1,0 +1,2 @@
+com.redhat.vertx.pipeline.step.HelloWorldStep
+com.redhat.vertx.pipeline.step.AbstractStepTest$Concat
