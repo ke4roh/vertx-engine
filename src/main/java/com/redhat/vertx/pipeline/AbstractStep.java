@@ -15,21 +15,23 @@ import io.vertx.core.json.JsonObject;
  * Abstract step offers code for managing steps that might execute longer
  */
 public abstract class AbstractStep extends DocBasedDisposableManager implements Step {
-
     protected Logger logger = Logger.getLogger(this.getClass().getName());
     protected JsonObject vars;
     protected Engine engine;
     protected String name;
     private long timeout;
     private String registerTo;
+    private boolean initialized;
 
     @Override
     public void init(Engine engine, JsonObject config) {
+        assert !initialized;
         this.engine = engine;
         name = config.getString("name");
         vars = config.getJsonObject("vars", new JsonObject());
         timeout = config.getLong("timeout_ms", 5000l);
         registerTo = config.getString("register");
+        initialized = true;
     }
 
     /**
@@ -46,6 +48,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
      */
     @Override
     public final Maybe<Object> execute(String uuid) {
+        assert initialized;
         return Maybe.create(source -> {
             execute0(uuid, source, new ArrayList<Disposable>(2));
         });

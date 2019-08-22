@@ -31,13 +31,6 @@ public class Section extends DocBasedDisposableManager implements Step {
         } else {
             throw new RuntimeException("Error locating " + def.getString("class"));
         }
-//        try {
-//            @SuppressWarnings("unchecked")
-//            Class<? extends Step> klass = (Class<? extends Step>) Class.forName(def.getString("class"));
-//            return klass.getDeclaredConstructor((Class[]) null).newInstance();
-//        } catch (ReflectiveOperationException e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
     public String getName() {
