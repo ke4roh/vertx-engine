@@ -27,13 +27,16 @@ public interface Step {
     /**
      *
      * @param uuid the key for the document being built (get it from the engine)
-     * @return The (Json-compatible) object to be persisted as a memento of this execution.  It may be a string, int,
-     * a JsonArray, JsonObject, etc.
+     * @return A Maybe containing a single entry with the key to which it is to be registered in the document,
+     *    or simply complete if there is no artifact to persist as a result of this step.
+     * @throws StepDependencyNotMetException (in the Maybe) if this step should be re-tried upon subsequent document
+     *    updates pending population of necessary values.
      */
-    public Maybe<Object> execute(String uuid);
+    public Maybe<JsonObject> execute(String uuid);
 
     /**
-     *
+     * Called after step execution for a particular document.  This is an opportunity to dispose Disposables and
+     * perform other cleanup.
      */
     public void finish(String uuid);
 
