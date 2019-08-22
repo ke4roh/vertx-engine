@@ -21,12 +21,15 @@ public class Section extends DocBasedDisposableManager implements Step {
     }
 
     private Step buildStep(JsonObject def) {
-        try {
-            @SuppressWarnings("unchecked")
-            Class<? extends Step> klass = (Class<? extends Step>) Class.forName(def.getString("class"));
-            return klass.getDeclaredConstructor((Class[]) null).newInstance();
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
+        ServiceLoader<Step> serviceLoader = ServiceLoader.load(Step.class);
+        final var stepClass = serviceLoader.stream()
+                .filter(stepDef -> def.getString("class").equals(stepDef.type().getName()))
+                .findFirst();
+
+        if (stepClass.isPresent()) {
+            return stepClass.get().get();
+        } else {
+            throw new RuntimeException("Error locating " + def.getString("class"));
         }
     }
 
