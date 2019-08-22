@@ -16,7 +16,7 @@ public class HelloWorldStep implements Step {
     }
 
     @Override
-    public Maybe<Object> execute(String uuid) {
+    public Maybe<JsonObject> execute(String uuid) {
         return Maybe.just(new JsonObject().put(registerTo,"hello, " + name));
     }
 
