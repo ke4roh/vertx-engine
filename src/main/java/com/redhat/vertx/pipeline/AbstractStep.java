@@ -29,7 +29,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
         this.engine = engine;
         name = config.getString("name");
         vars = config.getJsonObject("vars", new JsonObject());
-        timeout = config.getLong("timeout_ms", 5000l);
+        timeout = config.getLong("timeout_ms", 5000L);
         registerTo = config.getString("register");
         initialized = true;
     }
@@ -44,22 +44,21 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
      * </ul>
      *
      * @param uuid the key for the document being built (get it from the engine)
-     * @return
+     * @return a Maybe containing a JsonObject with one entry, the key equal to the "register" config object,
+     * or simply complete if the step has executed without returning a value.
      */
     @Override
-    public final Maybe<Object> execute(String uuid) {
+    public final Maybe<JsonObject> execute(String uuid) {
         assert initialized;
-        return Maybe.create(source -> {
-            execute0(uuid, source, new ArrayList<Disposable>(2));
-        });
+        return Maybe.create(source -> execute0(uuid, source, new ArrayList<>(2)) );
     }
 
     /**
      * @param uuid   The UUID of the document to be operated on
      * @param source The SingleEmitter for the AbstractStep execution we're attmembempting to complete
      */
-    private void execute0(String uuid, MaybeEmitter<Object> source, List<Disposable> listener) {
-        /**
+    private void execute0(String uuid, MaybeEmitter<JsonObject> source, List<Disposable> listener) {
+        /*
          * The gist of this function is:
          *
          * try {
@@ -80,7 +79,11 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
                     logger.finest(() -> "Removing from listener " + System.identityHashCode(listener) + " size=" +
                             listener.size() + " disposables for step " + name + ".");
                     listener.clear();
-                    source.onSuccess(resultReturn);
+                    if (registerTo != null) {
+                        source.onSuccess(new JsonObject().put(registerTo,resultReturn));
+                    } else {
+                        source.onComplete();
+                    }
                 },
                 err -> {
                     if (err instanceof StepDependencyNotMetException) {
@@ -135,8 +138,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
         try {
             Object rval = execute(env);
             return (rval == null || registerTo == null) ?
-                    Maybe.empty() :
-                    Maybe.just(new JsonObject().put(registerTo,rval));
+                    Maybe.empty() : Maybe.just(rval);
         } catch (StepDependencyNotMetException e) {
             return Maybe.error(e);
         }

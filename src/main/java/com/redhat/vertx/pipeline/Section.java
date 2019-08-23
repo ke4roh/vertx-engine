@@ -43,7 +43,7 @@ public class Section extends DocBasedDisposableManager implements Step {
     public void init(Engine engine, JsonObject config) {
         this.engine = engine;
         this.name = config.getString("name","default");
-        List<Step> steps = new ArrayList<Step>();
+        List<Step> steps = new ArrayList<>();
         for (Object stepConfig : config.getJsonArray("steps", new JsonArray())) {
             Step s = buildStep((JsonObject)stepConfig);
             s.init(engine,(JsonObject)stepConfig);
@@ -52,12 +52,12 @@ public class Section extends DocBasedDisposableManager implements Step {
         this.steps=Collections.unmodifiableList(steps);
     }
 
-    public Maybe<Object> execute(String uuid) {
+    public Maybe<JsonObject> execute(String uuid) {
         // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
         EventBus bus = engine.getEventBus();
         bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", uuid));
 
-        return Maybe.create(emitter -> {
+        return Maybe.create(emitter ->
             addDisposable(uuid,
                     Completable.concat(
                             steps.stream().map(step -> executeStep(step,uuid)).collect(Collectors.toList())
@@ -74,8 +74,8 @@ public class Section extends DocBasedDisposableManager implements Step {
                                 new JsonArray(Arrays.asList(name, err.toString())),
                                 new DeliveryOptions().addHeader("uuid", uuid)
                         );
-                    }));
-        });
+                    }))
+        );
     }
 
     /**
@@ -89,10 +89,9 @@ public class Section extends DocBasedDisposableManager implements Step {
      */
     private Completable executeStep(Step step, String uuid) {
         return Completable.create(source -> {
-            Maybe<Object> maybe = step.execute(uuid);
+            Maybe<JsonObject> maybe = step.execute(uuid);
             addDisposable(uuid,maybe.subscribe(onSuccess -> {
-                JsonObject jo = (JsonObject)onSuccess;
-                String register = jo.getMap().keySet().iterator().next();
+                String register = onSuccess.getMap().keySet().iterator().next();
 
                 // register to get the doc changed event (Engine fires that)
                 EventBus bus = engine.getEventBus();
