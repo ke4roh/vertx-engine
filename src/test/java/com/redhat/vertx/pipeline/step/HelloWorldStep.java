@@ -4,7 +4,9 @@ import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.Step;
 import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
+import org.kohsuke.MetaInfServices;
 
+@MetaInfServices(Step.class)
 public class HelloWorldStep implements Step {
     private String name;
     private String registerTo;

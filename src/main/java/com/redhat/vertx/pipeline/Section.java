@@ -10,7 +10,9 @@ import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.eventbus.EventBus;
+import org.kohsuke.MetaInfServices;
 
+@MetaInfServices(Step.class)
 public class Section extends DocBasedDisposableManager implements Step {
     private Engine engine;
     private String name;
