@@ -1,8 +1,12 @@
 package com.redhat.vertx.pipeline.step;
 
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+
 import com.redhat.ResourceUtils;
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.AbstractStep;
+import com.redhat.vertx.pipeline.Step;
 import com.redhat.vertx.pipeline.StepDependencyNotMetException;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -10,15 +14,14 @@ import io.vertx.junit5.VertxTestContext;
 import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
+import org.kohsuke.MetaInfServices;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(VertxExtension.class)
 public class AbstractStepTest {
 
+    @MetaInfServices(Step.class)
     public static class Concat extends AbstractStep {
         Logger logger = Logger.getLogger(this.getClass().getName());
 
