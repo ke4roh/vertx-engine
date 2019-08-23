@@ -1,14 +1,12 @@
 package com.redhat.vertx.pool;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.redhat.vertx.Engine;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
+import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.Vertx;
 
 /**
@@ -16,6 +14,7 @@ import io.vertx.reactivex.core.Vertx;
  * individual pipelines as needed.
  */
 public class EnginePool {
+    JsonObject systemConfig;
     // make this expire things or something - fancier
     PipelineResolver resolver;
     Map<String, Engine> map;
@@ -23,10 +22,15 @@ public class EnginePool {
     List<String> verticleIds;
 
     public EnginePool(PipelineResolver resolver, Vertx vertx) {
+        this(resolver,vertx, Collections.emptyMap());
+    }
+
+    public EnginePool(PipelineResolver resolver, Vertx vertx, Map<String,Object> systemConfig) {
         this.resolver = resolver;
         this.map = new HashMap<>();
         this.vertx = vertx;
         this.verticleIds = new ArrayList<>();
+        this.systemConfig = new JsonObject(systemConfig);
     }
 
     public Single<Engine> getEngineByPipelineName(String pipelineName) {
@@ -36,7 +40,7 @@ public class EnginePool {
                                 Engine e = map.get(pipeline);
 
                                 if (e == null) {
-                                    e = new Engine(pipeline);
+                                    e = new Engine(pipeline, systemConfig);
                                     final Engine engine=e;
                                     map.put(pipeline, e);
                                     vertx.rxDeployVerticle(e).subscribe(s -> {

@@ -1,5 +1,6 @@
 package com.redhat.vertx;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,9 +28,15 @@ import io.vertx.reactivex.core.eventbus.MessageConsumer;
 public class Engine extends AbstractVerticle {
     public static final String DOC_UUID = "__uuid__";
     private Section pipeline;
-    private Map<String,JsonObject> docCache = new ConcurrentHashMap<>();
+    private JsonObject systemConfig;
+    private Map<String, JsonObject> docCache = new ConcurrentHashMap<>();
 
     public Engine(String pipelineDef) {
+        this(pipelineDef, new JsonObject());
+    }
+
+    public Engine(String pipelineDef, JsonObject systemConfig) {
+        this.systemConfig = systemConfig;
         Object json = Json.decodeValue(pipelineDef);
         JsonObject jo;
         if (json instanceof JsonArray) {
@@ -47,8 +54,12 @@ public class Engine extends AbstractVerticle {
         return vertx.eventBus();
     }
 
-    public Vertx getVertRx() {
+    public Vertx getRxVertx() {
         return vertx;
+    }
+
+    public JsonObject getSystemConfig() {
+        return systemConfig;
     }
 
     @Override

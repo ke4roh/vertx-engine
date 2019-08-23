@@ -103,7 +103,8 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     protected JsonObject getEnvironment(String uuid) {
          JsonObject vars = this.vars.copy();
          vars.put("doc",getDocument(uuid));
-         return new TemplatedJsonObject(vars,new JinjaTemplateProcessor(),"doc");
+         vars.put("system", engine.getSystemConfig());
+         return new TemplatedJsonObject(vars,new JinjaTemplateProcessor(),"doc", "system");
     }
 
     /**
