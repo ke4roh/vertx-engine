@@ -1,12 +1,15 @@
 package com.redhat.vertx.pipeline.templates;
 
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.logging.Logger;
 
 import com.hubspot.jinjava.Jinjava;
 import com.hubspot.jinjava.JinjavaConfig;
+import com.hubspot.jinjava.interpret.Context;
 import com.hubspot.jinjava.interpret.RenderResult;
 import com.hubspot.jinjava.interpret.TemplateError;
+import com.hubspot.jinjava.lib.filter.Filter;
 
 public class JinjaTemplateProcessor implements TemplateProcessor {
     private Logger logger = Logger.getLogger(this.getClass().getName());
@@ -17,6 +20,9 @@ public class JinjaTemplateProcessor implements TemplateProcessor {
         builder.withFailOnUnknownTokens(true);
         JinjavaConfig config = builder.build();
         jinjava = new Jinjava(config);
+        Context ctx = jinjava.getGlobalContext();
+        ServiceLoader.load(Filter.class).forEach( filter -> ctx.registerFilter(filter));
+        ServiceLoader.load(JinjaFunctionDefinition.class).forEach(fd -> ctx.registerFunction(fd.getFunctionDefinition()));
     }
 
     @Override

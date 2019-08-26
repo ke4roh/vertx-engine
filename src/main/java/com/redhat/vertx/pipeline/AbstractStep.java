@@ -104,7 +104,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
          JsonObject vars = this.vars.copy();
          vars.put("doc",getDocument(uuid));
          vars.put("system", engine.getSystemConfig());
-         return new TemplatedJsonObject(vars,new JinjaTemplateProcessor(),"doc", "system");
+         return new TemplatedJsonObject(vars,engine.getTemplateProcessor(),"doc", "system");
     }
 
     /**
