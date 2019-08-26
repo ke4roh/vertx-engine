@@ -20,7 +20,7 @@
         <rxjava2.version>2.2.7</rxjava2.version>
         <junit-jupiter.version>5.4.0</junit-jupiter.version>
         <jinjava.version>2.5.2</jinjava.version>
-        <jmespath.version>0.3.0</jmespath.version>
+        <jmespath.version>0.4.0</jmespath.version>
         <jacoco.version>0.8.4</jacoco.version>
         <repo.token>${env.repo_token}</repo.token>
     </properties>
@@ -54,7 +54,7 @@
         </dependency>
         <dependency>
             <groupId>io.burt</groupId>
-            <artifactId>jmespath-core</artifactId>
+            <artifactId>jmespath-vertx</artifactId>
             <version>${jmespath.version}</version>
         </dependency>
         <dependency>
@@ -62,13 +62,6 @@
             <artifactId>metainf-services</artifactId>
             <version>1.8</version>
             <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>io.burt</groupId>
-            <artifactId>jmespath-core</artifactId>
-            <version>${jmespath.version}</version>
-            <type>test-jar</type>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.hamcrest</groupId>
