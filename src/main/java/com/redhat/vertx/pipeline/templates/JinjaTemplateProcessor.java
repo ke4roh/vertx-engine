@@ -21,9 +21,9 @@ public class JinjaTemplateProcessor implements TemplateProcessor {
         JinjavaConfig config = builder.build();
         jinjava = new Jinjava(config);
         Context ctx = jinjava.getGlobalContext();
-        ServiceLoader.load(Filter.class).forEach( filter -> ctx.registerFilter(filter));
+        ServiceLoader.load(Filter.class).forEach(ctx::registerFilter);
         ServiceLoader.load(JinjaFunctionDefinition.class)
-                .forEach(fds -> fds.getFunctionDefinition().forEach(f ->ctx.registerFunction(f)));
+                .forEach(fds -> fds.getFunctionDefinitions().forEach(ctx::registerFunction));
     }
 
     @Override

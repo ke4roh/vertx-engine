@@ -61,7 +61,28 @@ public class TestJinjaTemplateProcessor {
         context.put("month","November");
 
         assertThat(processor.applyTemplate(context, "{{ re:m(month,\"Nov\") }}")).isEqualTo("Nov");
-        assertThat(processor.applyTemplate(context, "{{ re:m(month,\"Jan\") }}")).isNull();
+        assertThat(processor.applyTemplate(context, "{{ re:m(month,\"Jan\") }}")).isEmpty();
+    }
+
+    @Test
+    public void testRegExFilter() throws Exception {
+        var processor = new JinjaTemplateProcessor();
+        var context = new HashMap<String, Object>();
+        context.put("month","November");
+
+        assertThat(processor.applyTemplate(context, "{{ month | reMatch(\"Nov\") }}")).isEqualTo("Nov");
+        assertThat(processor.applyTemplate(context, "{{ month | reMatch(\"Jan\") }}")).isEmpty();
+    }
+
+    @Test
+    public void testRegSubFilter() throws Exception {
+        var processor = new JinjaTemplateProcessor();
+        var context = new HashMap<String, Object>();
+        context.put("fruit","Banana");
+        context.put("nut","Cashew");
+
+        assertThat(processor.applyTemplate(context, "{{ fruit | reSub(\"na\",\"go\") }}")).isEqualTo("Bagogo");
+        assertThat(processor.applyTemplate(context, "{{ nut | reSub(\"na\",\"go\") }}")).isEqualTo(context.get("nut"));
     }
 
     public String getTestCapturedLog() throws IOException {
