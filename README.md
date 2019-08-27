@@ -26,4 +26,4 @@ import org.kohsuke.MetaInfServices;
 @MetaInfServices(FunctionDefinition.class)
 ````
 
-Annotate your methods with `@ELFunction`
+Annotate your public static methods with `@ELFunction`

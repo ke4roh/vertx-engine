@@ -13,6 +13,6 @@ public class JinjaRe extends AbstractJinjaFunctionDefinition {
     public static String match(String s, String pattern) {
         Pattern p = Pattern.compile(pattern);
         Matcher m = p.matcher(s);
-        return m.matches() ? m.group(0) : null;
+        return m.find() ? m.group(0) : null;
     }
 }
