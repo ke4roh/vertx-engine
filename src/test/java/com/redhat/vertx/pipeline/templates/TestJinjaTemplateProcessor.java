@@ -54,6 +54,37 @@ public class TestJinjaTemplateProcessor {
         assertThat(capturedLog).contains("message='Cannot resolve property 'lastName' in 'Greeter''");
     }
 
+    @Test
+    public void testRegexMatch() throws Exception {
+        var processor = new JinjaTemplateProcessor();
+        var context = new HashMap<String, Object>();
+        context.put("month","November");
+
+        assertThat(processor.applyTemplate(context, "{{ re:m(month,\"Nov\") }}")).isEqualTo("Nov");
+        assertThat(processor.applyTemplate(context, "{{ re:m(month,\"Jan\") }}")).isEmpty();
+    }
+
+    @Test
+    public void testRegExFilter() throws Exception {
+        var processor = new JinjaTemplateProcessor();
+        var context = new HashMap<String, Object>();
+        context.put("month","November");
+
+        assertThat(processor.applyTemplate(context, "{{ month | rematch(\"Nov\") }}")).isEqualTo("Nov");
+        assertThat(processor.applyTemplate(context, "{{ month | rematch(\"Jan\") }}")).isEmpty();
+    }
+
+    @Test
+    public void testRegSubFilter() throws Exception {
+        var processor = new JinjaTemplateProcessor();
+        var context = new HashMap<String, Object>();
+        context.put("fruit","Banana");
+        context.put("nut","Cashew");
+
+        assertThat(processor.applyTemplate(context, "{{ fruit | resub(\"na\",\"go\") }}")).isEqualTo("Bagogo");
+        assertThat(processor.applyTemplate(context, "{{ nut | resub(\"na\",\"go\") }}")).isEqualTo(context.get("nut"));
+    }
+
     public String getTestCapturedLog() throws IOException {
         customLogHandler.flush();
         return logCapturingStream.toString();
@@ -74,4 +105,5 @@ public class TestJinjaTemplateProcessor {
             this.name = name;
         }
     }
+
 }

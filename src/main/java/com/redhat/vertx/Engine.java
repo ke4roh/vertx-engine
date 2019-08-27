@@ -7,6 +7,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.redhat.vertx.pipeline.EventBusMessage;
 import com.redhat.vertx.pipeline.Section;
+import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
+import com.redhat.vertx.pipeline.templates.TemplateProcessor;
 import io.reactivex.Completable;
 import io.reactivex.Single;
 import io.vertx.core.DeploymentOptions;
@@ -30,6 +32,7 @@ public class Engine extends AbstractVerticle {
     private Section pipeline;
     private JsonObject systemConfig;
     private Map<String, JsonObject> docCache = new ConcurrentHashMap<>();
+    private JinjaTemplateProcessor templateProcessor;
 
     public Engine(String pipelineDef) {
         this(pipelineDef, new JsonObject());
@@ -60,6 +63,13 @@ public class Engine extends AbstractVerticle {
 
     public JsonObject getSystemConfig() {
         return systemConfig;
+    }
+
+    public TemplateProcessor getTemplateProcessor() {
+        if (templateProcessor == null) {
+            templateProcessor = new JinjaTemplateProcessor();
+        }
+        return templateProcessor;
     }
 
     @Override
