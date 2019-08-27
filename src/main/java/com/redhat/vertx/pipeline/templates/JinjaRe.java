@@ -34,7 +34,7 @@ public class JinjaRe implements JinjaFunctionDefinition {
 
         @Override
         public String getName() {
-            return "reMatch";
+            return "rematch";
         }
     }
 
@@ -49,7 +49,7 @@ public class JinjaRe implements JinjaFunctionDefinition {
 
         @Override
         public String getName() {
-            return "reSub";
+            return "resub";
         }
     }
 }

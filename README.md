@@ -27,20 +27,25 @@ list of steps. The steps are executed in the order they are ready (which may not
 order of appearance in the pipeline).  Variables for each step are processed by the
 step, and they are evaluated through the Jinja template engine before use.
 
+Steps carry out core functionality for construction of the document.  Logically lighter weight 
+activities may be carried out as fiilters and functions within the Jinja template engine.  For example,
+a step would call out to a search engine, while a set of filters might manipulate a query string 
+in preparation for it.   
+
 ## The step environment
 When a step executes, `AbstractStep` assembles its environment with the variables provided in the "vars" block and
 some standard keys:
-<table>
-<tr><th span="col">key</th><th span="col">explanation</th></tr>
-<tr><th span="row">doc</th><td>The data initially provided and all values registered subsequently</td></tr>
-<tr><th span="row">system</th><td>System variables (-D java options, environment variables, and config file values)</td></tr>
-</table>
 
-Values not in system and doc (vars), are evaluated with <a href="https://github.com/HubSpot/jinjava/">Jinja</a> 
+| Key     | Explanation |
+| ---     | ---         |
+| doc     | The data initially provided and all values registered subsequently |
+| system  |System variables (-D java options, environment variables, and config file values) |
+
+Values not in system and doc (vars), are evaluated with [Jinja](https://github.com/HubSpot/jinjava/) 
 templating. 
 
-Jinjava provides <a href="https://static.javadoc.io/com.hubspot.jinjava/jinjava/2.5.2/com/hubspot/jinjava/lib/filter/package-frame.html">a number of filters</a> 
-and <a href="https://static.javadoc.io/com.hubspot.jinjava/jinjava/2.5.2/com/hubspot/jinjava/lib/fn/Functions.html">functions</a>.
+Jinjava provides [a number of filters](https://static.javadoc.io/com.hubspot.jinjava/jinjava/2.5.2/com/hubspot/jinjava/lib/filter/package-frame.html) 
+and [functions](https://static.javadoc.io/com.hubspot.jinjava/jinjava/2.5.2/com/hubspot/jinjava/lib/fn/Functions.html).
 
 Additional functions built in to this project are `re:m(string, pattern)` which returns the first match of the string, 
 and `re:s(string, pattern, replacement)` which replaces all occurrences of `pattern` with `replacement`.
@@ -72,7 +77,7 @@ import org.kohsuke.MetaInfServices;
 
 Annotate your public static methods with `@ELFunction(value,namespace)`, where "value" 
 is the name of the function and "namespace" will come before, like
- <code>re:match("foobar","[fo]*")</code>.  Namespace may be left blank.
+ `re:match("foobar","[fo]*")`.  Namespace may be left blank.
 
 ## Writing a Jinja filter
 Implement a Jinja `Filter` and annotate your class with this:
