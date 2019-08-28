@@ -70,8 +70,8 @@ public class TestJinjaTemplateProcessor {
         var context = new HashMap<String, Object>();
         context.put("month","November");
 
-        assertThat(processor.applyTemplate(context, "{{ month | rematch(\"Nov\") }}")).isEqualTo("Nov");
-        assertThat(processor.applyTemplate(context, "{{ month | rematch(\"Jan\") }}")).isEmpty();
+        assertThat(processor.applyTemplate(context, "{{ month | regex_search(\"Nov\") }}")).isEqualTo("Nov");
+        assertThat(processor.applyTemplate(context, "{{ month | regex_search(\"Jan\") }}")).isEmpty();
     }
 
     @Test
@@ -81,8 +81,8 @@ public class TestJinjaTemplateProcessor {
         context.put("fruit","Banana");
         context.put("nut","Cashew");
 
-        assertThat(processor.applyTemplate(context, "{{ fruit | resub(\"na\",\"go\") }}")).isEqualTo("Bagogo");
-        assertThat(processor.applyTemplate(context, "{{ nut | resub(\"na\",\"go\") }}")).isEqualTo(context.get("nut"));
+        assertThat(processor.applyTemplate(context, "{{ fruit | regex_replace(\"na\",\"go\") }}")).isEqualTo("Bagogo");
+        assertThat(processor.applyTemplate(context, "{{ nut | regex_replace(\"na\",\"go\") }}")).isEqualTo(context.get("nut"));
     }
 
     public String getTestCapturedLog() throws IOException {
