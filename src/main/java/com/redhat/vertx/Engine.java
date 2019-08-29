@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.redhat.vertx.pipeline.EventBusMessage;
 import com.redhat.vertx.pipeline.Section;
+import com.redhat.vertx.pipeline.json.YamlParser;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.TemplateProcessor;
 import io.reactivex.Completable;
@@ -40,7 +41,7 @@ public class Engine extends AbstractVerticle {
 
     public Engine(String pipelineDef, JsonObject systemConfig) {
         this.systemConfig = systemConfig;
-        Object json = Json.decodeValue(pipelineDef);
+        Object json = new JsonObject(YamlParser.parse(pipelineDef));
         JsonObject jo;
         if (json instanceof JsonArray) {
             jo=new JsonObject();

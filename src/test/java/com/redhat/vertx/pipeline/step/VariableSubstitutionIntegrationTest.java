@@ -23,7 +23,7 @@ public class VariableSubstitutionIntegrationTest {
                 ));
         Engine engine = new Engine(
                 ResourceUtils.fileContentsFromResource(
-                        "com/redhat/vertx/pipeline/step/varSubstitutionTestPipeline.json"
+                        "com/redhat/vertx/pipeline/step/varSubstitutionTestPipeline.yaml"
                 ));
         vertx.rxDeployVerticle(engine).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
         JsonObject d2 = engine.execute(doc).timeout(1000, TimeUnit.MILLISECONDS).blockingGet();  // TODO faster

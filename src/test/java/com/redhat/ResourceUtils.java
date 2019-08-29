@@ -16,7 +16,7 @@ public class ResourceUtils {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(Objects.requireNonNull(stream)))) {
             Stream<String> lines = br.lines();
 
-            return lines.collect(Collectors.joining());
+            return lines.collect(Collectors.joining(System.getProperty("line.separator")));
         } catch (IOException | NullPointerException e) {
             return "";
         }
