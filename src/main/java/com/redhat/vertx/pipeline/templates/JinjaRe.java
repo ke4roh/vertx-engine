@@ -1,6 +1,8 @@
 package com.redhat.vertx.pipeline.templates;
 
+import com.hubspot.jinjava.interpret.InvalidInputException;
 import com.hubspot.jinjava.interpret.JinjavaInterpreter;
+import com.hubspot.jinjava.interpret.TemplateSyntaxException;
 import com.hubspot.jinjava.lib.fn.ELFunction;
 import com.hubspot.jinjava.lib.filter.Filter;
 import org.kohsuke.MetaInfServices;
@@ -28,7 +30,13 @@ public class JinjaRe implements JinjaFunctionDefinition {
 
         @Override
         public Object filter(Object var, JinjavaInterpreter interpreter, String... args) {
-            assert args.length == 1;
+            if (var == null) {
+                return null;
+                // throw new InvalidInputException(interpreter,getName(),getName() + " pipe input cannot be null");
+            }
+            if (args.length != 1) {
+                throw new TemplateSyntaxException(interpreter, getName(), "requires 1 argument (the pattern)");
+            }
             return match((String) var, args[0]);
         }
 
@@ -43,6 +51,12 @@ public class JinjaRe implements JinjaFunctionDefinition {
 
         @Override
         public Object filter(Object var, JinjavaInterpreter interpreter, String... args) {
+            if (var == null) {
+                return null;
+            }
+            if (args.length != 2) {
+                throw new TemplateSyntaxException(interpreter, getName(), "requires 2 arguments (pattern, new_content)");
+            }
             assert args.length == 2;
             return substitute((String)var, args[0], args[1]);
         }
