@@ -3,6 +3,7 @@ package com.redhat.vertx.pipeline.templates;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.logging.Handler;
@@ -83,6 +84,18 @@ public class TestJinjaTemplateProcessor {
 
         assertThat(processor.applyTemplate(context, "{{ fruit | regex_replace(\"na\",\"go\") }}")).isEqualTo("Bagogo");
         assertThat(processor.applyTemplate(context, "{{ nut | regex_replace(\"na\",\"go\") }}")).isEqualTo(context.get("nut"));
+    }
+
+    @Test
+    public void testRegSubFilterWithNamedArray() throws Exception {
+        var processor = new JinjaTemplateProcessor();
+        var context = new HashMap<String, Object>();
+        context.put("fruit","Banana");
+        context.put("nut","Cashew");
+        context.put("na_go", Arrays.asList("na","go"));
+
+        assertThat(processor.applyTemplate(context, "{{ fruit | regex_replace(na_go) }}")).isEqualTo("Bagogo");
+        assertThat(processor.applyTemplate(context, "{{ nut | regex_replace(na_go) }}")).isEqualTo(context.get("nut"));
     }
 
     public String getTestCapturedLog() throws IOException {
