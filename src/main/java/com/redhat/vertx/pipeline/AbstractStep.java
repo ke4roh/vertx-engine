@@ -24,7 +24,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     private boolean initialized;
 
     @Override
-    public void init(Engine engine, JsonObject config) {
+    public Completable init(Engine engine, JsonObject config) {
         assert !initialized;
         this.engine = engine;
         name = config.getString("name");
@@ -32,6 +32,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
         timeout = config.getLong("timeout_ms", 5000L);
         registerTo = config.getString("register");
         initialized = true;
+        return Completable.complete();
     }
 
     /**

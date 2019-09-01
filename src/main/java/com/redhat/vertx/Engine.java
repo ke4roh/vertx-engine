@@ -32,6 +32,7 @@ public class Engine extends AbstractVerticle {
     private JsonObject systemConfig;
     private Map<String, JsonObject> docCache = new ConcurrentHashMap<>();
     private JinjaTemplateProcessor templateProcessor;
+    private Completable initComplete;
 
     public Engine(String pipelineDef) {
         this(pipelineDef, new JsonObject());
@@ -41,7 +42,7 @@ public class Engine extends AbstractVerticle {
         this.systemConfig = systemConfig;
         JsonObject jo = new JsonObject(YamlParser.parse(pipelineDef));
         this.pipeline = new Section();
-        pipeline.init(this,jo);
+        initComplete = pipeline.init(this,jo);
     }
 
     public EventBus getEventBus() {
@@ -77,7 +78,7 @@ public class Engine extends AbstractVerticle {
                     emitter.onComplete();
                 }
             }); // TODO dispose properly
-        });
+        }).mergeWith(initComplete);
     }
 
     /**
