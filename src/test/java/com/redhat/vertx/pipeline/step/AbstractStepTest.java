@@ -26,11 +26,6 @@ public class AbstractStepTest {
         Logger logger = Logger.getLogger(this.getClass().getName());
 
         @Override
-        public void init(Engine engine, JsonObject config) {
-            super.init(engine, config);
-        }
-
-        @Override
         public Object execute(JsonObject doc) throws StepDependencyNotMetException {
             String base = doc.getString("from");
             if (base==null) {
