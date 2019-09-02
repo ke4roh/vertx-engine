@@ -40,16 +40,18 @@ public class Section extends DocBasedDisposableManager implements Step {
     }
 
     @Override
-    public void init(Engine engine, JsonObject config) {
+    public Completable init(Engine engine, JsonObject config) {
         this.engine = engine;
         this.name = config.getString("name","default");
+        List<Completable> stepCompletables = new ArrayList<>();
         List<Step> steps = new ArrayList<>();
-        for (Object stepConfig : config.getJsonArray("steps", new JsonArray())) {
+        config.getJsonArray("steps", new JsonArray()).forEach( stepConfig -> {
             Step s = buildStep((JsonObject)stepConfig);
-            s.init(engine,(JsonObject)stepConfig);
+            stepCompletables.add(s.init(engine,(JsonObject)stepConfig));
             steps.add(s);
-        }
+        });
         this.steps=Collections.unmodifiableList(steps);
+        return Completable.merge(stepCompletables);
     }
 
     public Maybe<JsonObject> execute(String uuid) {

@@ -1,6 +1,5 @@
 package com.redhat.vertx;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,10 +11,9 @@ import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.TemplateProcessor;
 import io.reactivex.Completable;
 import io.reactivex.Single;
+import io.reactivex.SingleEmitter;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
-import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.Vertx;
@@ -34,6 +32,7 @@ public class Engine extends AbstractVerticle {
     private JsonObject systemConfig;
     private Map<String, JsonObject> docCache = new ConcurrentHashMap<>();
     private JinjaTemplateProcessor templateProcessor;
+    private Completable initComplete;
 
     public Engine(String pipelineDef) {
         this(pipelineDef, new JsonObject());
@@ -41,17 +40,9 @@ public class Engine extends AbstractVerticle {
 
     public Engine(String pipelineDef, JsonObject systemConfig) {
         this.systemConfig = systemConfig;
-        Object json = new JsonObject(YamlParser.parse(pipelineDef));
-        JsonObject jo;
-        if (json instanceof JsonArray) {
-            jo=new JsonObject();
-            jo.put("steps",json);
-            jo.put("name","default");
-        } else {
-            jo = (JsonObject)json;
-        }
+        JsonObject jo = new JsonObject(YamlParser.parse(pipelineDef));
         this.pipeline = new Section();
-        pipeline.init(this,jo);
+        initComplete = pipeline.init(this,jo);
     }
 
     public EventBus getEventBus() {
@@ -87,7 +78,7 @@ public class Engine extends AbstractVerticle {
                     emitter.onComplete();
                 }
             }); // TODO dispose properly
-        });
+        }).mergeWith(initComplete);
     }
 
     /**
@@ -111,21 +102,24 @@ public class Engine extends AbstractVerticle {
         });
 
         return Single.create(source ->
-                pipeline.execute(uuid).subscribe(result -> {
-                    bus.publish(EventBusMessage.DOCUMENT_COMPLETED, uuid);
-                    JsonObject doc = docCache.remove(uuid);
-                    changeWatcher.unregister();
-                }, err -> {
-                            JsonObject doc = docCache.remove(uuid);
-                            changeWatcher.unregister();
-                            source.onError(err);
-                }, () -> {
-                            JsonObject doc = docCache.remove(uuid);
-                            changeWatcher.unregister();
-                            source.onSuccess(doc);
-                        }
+                pipeline.execute(uuid).subscribe(
+                        result -> finishDoc(uuid, bus, changeWatcher, source, null),
+                        err -> finishDoc(uuid, bus, changeWatcher, source, err),
+                        () -> finishDoc(uuid, bus, changeWatcher, source, null)
                 ));
     }
+
+    private void finishDoc(String uuid, EventBus bus, MessageConsumer<Object> changeWatcher, SingleEmitter<JsonObject> source, Throwable err) {
+        bus.publish(EventBusMessage.DOCUMENT_COMPLETED, uuid);
+        JsonObject doc = docCache.remove(uuid);
+        changeWatcher.unregister();
+        if (err == null) {
+            source.onSuccess(doc);
+        } else {
+            source.onError(err);
+        }
+    }
+
 
     public JsonObject getDocument(String uuid) {
         return docCache.get(uuid);
