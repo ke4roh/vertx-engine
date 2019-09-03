@@ -1,6 +1,5 @@
 package com.redhat.vertx;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,7 +13,6 @@ import io.reactivex.Completable;
 import io.reactivex.Single;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.AbstractVerticle;
@@ -80,13 +78,15 @@ public class Engine extends AbstractVerticle {
         // TODO: Also, we don't need multiple of these being deployed
         return Completable.create(emitter -> {
             DocumentLogger documentLogger = new DocumentLogger();
-            vertx.rxDeployVerticle(documentLogger, new DeploymentOptions().setWorker(true).setWorkerPoolName("document-logger")).subscribe((s, throwable) -> {
+            final var deployOpts = new DeploymentOptions().setWorker(true).setWorkerPoolName("document-logger");
+            //noinspection ResultOfMethodCallIgnored
+            vertx.rxDeployVerticle(documentLogger, deployOpts).subscribe((s, throwable) -> {
                 if (throwable != null) {
                     emitter.tryOnError(throwable);
                 } else {
                     emitter.onComplete();
                 }
-            }); // TODO dispose properly
+            });
         });
     }
 
