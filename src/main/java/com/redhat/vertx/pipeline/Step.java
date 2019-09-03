@@ -1,6 +1,7 @@
 package com.redhat.vertx.pipeline;
 
 import com.redhat.vertx.Engine;
+import io.reactivex.Completable;
 import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 
@@ -22,7 +23,7 @@ public interface Step {
      * @param engine The engine to which this step is bound.  The engine provides document cache and vertx.
      * @param config The configuration for this step
      */
-    public void init(Engine engine, JsonObject config);
+    public Completable init(Engine engine, JsonObject config);
 
     /**
      *
