@@ -1,6 +1,7 @@
 package com.redhat.vertx.pipeline.templates;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.logging.Logger;
 
@@ -30,6 +31,10 @@ public class JinjaTemplateProcessor implements TemplateProcessor {
     public String applyTemplate(Map<String,Object> env, String str) {
         RenderResult rr = jinjava.renderForResult(str, env);
         if (rr.hasErrors()) {
+            Optional<TemplateError> unkownToken = rr.getErrors().stream().filter(te -> te.getSeverity() == TemplateError.ErrorType.FATAL && te.getMessage().startsWith("UnknownTokenException:")).findAny();
+            if (unkownToken.isPresent()) {
+                throw new MissingParameterException(unkownToken.get().getMessage().split(": ")[2]);
+            }
             rr.getErrors().stream().filter(te -> te.getSeverity() == TemplateError.ErrorType.FATAL)
                     .iterator().forEachRemaining(te ->logger.severe(te.toString()));
             rr.getErrors().stream().filter(te -> te.getSeverity() == TemplateError.ErrorType.WARNING)

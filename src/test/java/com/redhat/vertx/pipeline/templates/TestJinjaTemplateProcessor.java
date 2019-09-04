@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestJinjaTemplateProcessor {
     private static Logger log = Logger.getLogger(JinjaTemplateProcessor.class.getName());
@@ -30,29 +32,56 @@ public class TestJinjaTemplateProcessor {
     }
 
     @Test
+    public void throwExceptionForMissingVariable() throws IOException {
+        JinjaTemplateProcessor p = new JinjaTemplateProcessor();
+        try {
+            p.applyTemplate(Collections.emptyMap(), "{{not_there}}");
+            fail("Expected exception");
+        } catch (MissingParameterException e) {
+            assertThat(e.getMessage()).isEqualTo("not_there");
+        }
+        assertThat(getTestCapturedLog()).isEmpty();
+    }
+
+    @Test
+    public void throwExceptionForMissingVariableDeeper() throws IOException {
+        JinjaTemplateProcessor p = new JinjaTemplateProcessor();
+        Map<String, Object> m = new HashMap<>();
+        m.put("really", Collections.emptyMap());
+        try {
+            p.applyTemplate(m, "{{really.not_there}}");
+            fail("Expected exception");
+        } catch (MissingParameterException e) {
+            assertThat(e.getMessage()).isEqualTo("really.not_there");
+        }
+        assertThat(getTestCapturedLog()).isEmpty();
+    }
+
+    @Test
     public void testLogFatal() throws Exception {
         var processor = new JinjaTemplateProcessor();
-        processor.applyTemplate(Collections.emptyMap(), "{{ greeting }} User!");
+        processor.applyTemplate(Collections.emptyMap(), "{{ gr@$%^#%^eeting }} User!");
 
         var capturedLog = getTestCapturedLog();
         assertThat(capturedLog).isNotEmpty();
         assertThat(capturedLog).contains("FATAL");
-        assertThat(capturedLog).contains("message='UnknownTokenException: Unknown token found: greeting'");
+        assertThat(capturedLog).contains("message='Error parsing 'gr@$%^#%^eeting': lexical error at position 5");
     }
 
     @Test
     public void testLogWarning() throws Exception {
         var processor = new JinjaTemplateProcessor();
         var context = new HashMap<String, Object>();
-        context.put("greeting", new Greeter("Jim"));
+        context.put("greeting","{{salutations}}");
+        context.put("salutations","{{greeting}}");
         log.setLevel(Level.ALL);
 
-        processor.applyTemplate(context, "Hello {{ greeting.lastName }}!");
+        processor.applyTemplate(context, "{{greeting}}");
 
         var capturedLog = getTestCapturedLog();
         assertThat(capturedLog).isNotEmpty();
         assertThat(capturedLog).contains("WARNING");
-        assertThat(capturedLog).contains("message='Cannot resolve property 'lastName' in 'Greeter''");
+        assertThat(capturedLog).contains("message='Rendering cycle detected: '{{greeting}}''");
     }
 
     @Test
@@ -113,22 +142,6 @@ public class TestJinjaTemplateProcessor {
     public String getTestCapturedLog() throws IOException {
         customLogHandler.flush();
         return logCapturingStream.toString();
-    }
-
-    public static class Greeter {
-        String name;
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public Greeter(String name) {
-            this.name = name;
-        }
     }
 
 }
