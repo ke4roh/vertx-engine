@@ -1,5 +1,6 @@
 package com.redhat.vertx;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,7 +78,7 @@ public class Engine extends AbstractVerticle {
                 } else {
                     emitter.onComplete();
                 }
-            }); // TODO dispose properly
+            });
         }).mergeWith(initComplete);
     }
 

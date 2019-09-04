@@ -66,6 +66,18 @@ public class TestJinjaTemplateProcessor {
     }
 
     @Test
+    public void testRegexSearchFilter() {
+        var processor = new JinjaTemplateProcessor();
+        var context = new HashMap<String, Object>();
+        context.put("trim", "^.{0,1000}(?:\\b|$)");
+        context.put("summary", "Why are custom channels not syncing properly from my ISS master?");
+
+        var expected = "Why are custom channels not syncing properly from my ISS master?";
+
+        assertThat(processor.applyTemplate(context, "{{ summary | regex_search(trim) }}")).isEqualTo(expected);
+    }
+
+    @Test
     public void testRegExFilter() throws Exception {
         var processor = new JinjaTemplateProcessor();
         var context = new HashMap<String, Object>();
