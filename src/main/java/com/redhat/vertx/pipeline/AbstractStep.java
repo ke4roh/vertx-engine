@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
+import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.*;
 import io.reactivex.disposables.Disposable;
 import io.vertx.core.json.JsonObject;
@@ -87,7 +88,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
                     }
                 },
                 err -> {
-                    if (err instanceof StepDependencyNotMetException) {
+                    if (err instanceof StepDependencyNotMetException || err instanceof MissingParameterException) {
                         if (listener.isEmpty()) {
                             logger.finest(() -> "Step " + name + " listening for a change.");
                             listener.add(engine.getEventBus()
@@ -141,7 +142,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
             Object rval = execute(env);
             return (rval == null || registerTo == null) ?
                     Maybe.empty() : Maybe.just(rval);
-        } catch (StepDependencyNotMetException e) {
+        } catch (MissingParameterException | StepDependencyNotMetException e) {
             return Maybe.error(e);
         }
     }
