@@ -1,6 +1,7 @@
 package com.redhat.vertx.pipeline;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import com.redhat.vertx.Engine;
@@ -49,7 +50,9 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     public final Maybe<JsonObject> execute(String docId) {
         assert initialized;
         JsonObject env = getEnvironment(docId);
-        return Maybe.create(source -> addDisposable(docId,executeSlow(env).subscribe(
+        return Maybe.create(source -> addDisposable(docId,
+                executeSlow(env).timeout(timeout, TimeUnit.MILLISECONDS)
+                .subscribe(
                 rval -> {
                     if (registerTo == null) {
                         source.onComplete();
