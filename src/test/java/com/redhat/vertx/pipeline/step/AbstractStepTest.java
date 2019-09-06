@@ -1,5 +1,8 @@
 package com.redhat.vertx.pipeline.step;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -8,6 +11,8 @@ import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.AbstractStep;
 import com.redhat.vertx.pipeline.Step;
 import com.redhat.vertx.pipeline.StepDependencyNotMetException;
+import com.redhat.vertx.pipeline.templates.MissingParameterException;
+import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -17,6 +22,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.kohsuke.MetaInfServices;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(VertxExtension.class)
 public class AbstractStepTest {
@@ -46,6 +53,39 @@ public class AbstractStepTest {
         assertThat(newDoc.getString("ca")).isEqualTo("me");
         assertThat(newDoc.getString("cat")).isEqualTo("meo");
         assertThat(newDoc.getString("cats")).isEqualTo("meow");
+        testContext.completeNow();
+    }
+
+    @Test
+    public void testExceptionInExecuteSlow(Vertx vertx, VertxTestContext testContext) throws InterruptedException {
+        /* Supposing a RuntimeException occurs inside executeSlow before it constructs its Maybe,
+         * does it get handled properly and put onto the Maybe from the step?
+         */
+        String message = "Not gonna happen";
+        AbstractStep step = new AbstractStep() {
+            @Override
+            protected Maybe<Object> executeSlow(JsonObject env) {
+                throw new MissingParameterException(message);
+            }
+        };
+        String doc_id = UUID.randomUUID().toString();
+        JsonObject doc = new JsonObject();
+        Engine engineMock = mock(Engine.class);
+        when(engineMock.getDocument(doc_id)).thenReturn(doc);
+        when(engineMock.getRxVertx()).thenReturn(vertx);
+
+        step.init(engineMock,new JsonObject());
+
+        List<Object> outcome = new ArrayList();
+        step.execute(doc_id).subscribe(
+                s -> needExceptionFinishTest(s, message, testContext),
+                e -> needExceptionFinishTest(e, message, testContext),
+                () -> needExceptionFinishTest(null,message,testContext) );
+    }
+
+    private void needExceptionFinishTest(Object o, String message, VertxTestContext testContext) {
+        assertThat(o).isInstanceOf(RuntimeException.class);
+        assertThat(((Exception) o).getMessage()).isEqualTo(message);
         testContext.completeNow();
     }
 }

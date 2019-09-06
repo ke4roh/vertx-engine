@@ -6,7 +6,6 @@ import java.util.logging.Logger;
 
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
-import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.*;
 import io.reactivex.disposables.Disposable;
