@@ -5,7 +5,7 @@ using Vert.X and reactive programming.
 
 ## Build status
 [![build status](https://travis-ci.org/ke4roh/vertx-engine.svg?branch=master)](https://travis-ci.org/ke4roh/vertx-engine/branches)
-[![Coverage Status](https://coveralls.io/repos/github/ke4roh/vertx-engine/badge.svg?branch=master)](https://coveralls.io/github/ke4roh/vertx-engine?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/ke4roh/vertx-engine/badge.svg)](https://coveralls.io/github/ke4roh/vertx-engine)
 
 ## The basic idea
 An input document provides a seed for a completed document.  Our motivation for 
