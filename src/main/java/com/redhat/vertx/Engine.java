@@ -1,6 +1,5 @@
 package com.redhat.vertx;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +18,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.Vertx;
 import io.vertx.reactivex.core.eventbus.EventBus;
+import io.vertx.reactivex.core.eventbus.Message;
 import io.vertx.reactivex.core.eventbus.MessageConsumer;
 
 /**
@@ -94,13 +94,9 @@ public class Engine extends AbstractVerticle {
         docCache.put(uuid, executionData);
         EventBus bus = getEventBus();
         bus.publish(EventBusMessage.DOCUMENT_STARTED, uuid);
-        MessageConsumer<Object> changeWatcher = bus.consumer(EventBusMessage.CHANGE_REQUEST, delta -> {
-            JsonObject body = (JsonObject) delta.body();
-            assert body.size() == 1;
-            docCache.get(uuid).mergeIn(body);
-            final var deliveryOptions = new DeliveryOptions().addHeader("uuid", uuid);
-            bus.publish(EventBusMessage.DOCUMENT_CHANGED, body.iterator().next().getKey(), deliveryOptions);
-        });
+
+        MessageConsumer<JsonObject> changeWatcher = bus.consumer(EventBusMessage.CHANGE_REQUEST,
+                                                                 this::processChangeRequest);
 
         return Single.create(source ->
                 pipeline.execute(uuid).subscribe(
@@ -110,7 +106,17 @@ public class Engine extends AbstractVerticle {
                 ));
     }
 
-    private void finishDoc(String uuid, EventBus bus, MessageConsumer<Object> changeWatcher, SingleEmitter<JsonObject> source, Throwable err) {
+    private void processChangeRequest(Message<JsonObject> delta) {
+        assert delta.body().size() == 1;
+        final var docUuid = delta.headers().get("uuid");
+        final var body = delta.body();
+        final var deliveryOptions = new DeliveryOptions().addHeader("uuid", docUuid);
+
+        docCache.get(docUuid).mergeIn(body);
+        getEventBus().publish(EventBusMessage.DOCUMENT_CHANGED, body.iterator().next().getKey(), deliveryOptions);
+    }
+
+    private void finishDoc(String uuid, EventBus bus, MessageConsumer<JsonObject> changeWatcher, SingleEmitter<JsonObject> source, Throwable err) {
         bus.publish(EventBusMessage.DOCUMENT_COMPLETED, uuid);
         JsonObject doc = docCache.remove(uuid);
         changeWatcher.unregister();
@@ -120,7 +126,6 @@ public class Engine extends AbstractVerticle {
             source.onError(err);
         }
     }
-
 
     public JsonObject getDocument(String uuid) {
         return docCache.get(uuid);
