@@ -1,7 +1,6 @@
 package com.redhat.vertx.pipeline;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import com.redhat.vertx.Engine;

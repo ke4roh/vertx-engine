@@ -1,9 +1,8 @@
 package com.redhat.vertx.pipeline.step;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 import com.redhat.ResourceUtils;
@@ -16,6 +15,7 @@ import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
+import io.vertx.reactivex.MaybeHelper;
 import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,16 +76,52 @@ public class AbstractStepTest {
 
         step.init(engineMock,new JsonObject());
 
-        List<Object> outcome = new ArrayList();
         step.execute(doc_id).subscribe(
-                s -> needExceptionFinishTest(s, message, testContext),
-                e -> needExceptionFinishTest(e, message, testContext),
-                () -> needExceptionFinishTest(null,message,testContext) );
+                s -> needExceptionFinishTest(s, message, testContext, RuntimeException.class),
+                e -> needExceptionFinishTest(e, message, testContext, RuntimeException.class),
+                () -> needExceptionFinishTest(null,message,testContext, RuntimeException.class) );
     }
 
-    private void needExceptionFinishTest(Object o, String message, VertxTestContext testContext) {
-        assertThat(o).isInstanceOf(RuntimeException.class);
-        assertThat(((Exception) o).getMessage()).isEqualTo(message);
+    private void needExceptionFinishTest(Object o, String message, VertxTestContext testContext, Class<? extends Throwable> expectedException) {
+        assertThat(o).isInstanceOf(expectedException);
+        if (message != null) {
+            assertThat(((Exception) o).getMessage()).isEqualTo(message);
+        }
         testContext.completeNow();
+    }
+
+    @Test
+    public void testTimeout(Vertx vertx, VertxTestContext testContext) {
+        AbstractStep step = new AbstractStep() {
+            @Override
+            protected Maybe<Object> executeSlow(JsonObject env) {
+                return MaybeHelper.toMaybe(handler -> {
+                    vertx.executeBlocking(fut -> fut.complete(sleepALongTime()), handler);
+                });
+            }
+
+            private Object sleepALongTime() {
+                try {
+                    Thread.sleep(525600l * 20 * 60 * 1000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            }
+        };
+
+        String doc_id = UUID.randomUUID().toString();
+        JsonObject doc = new JsonObject();
+        Engine engineMock = mock(Engine.class);
+        when(engineMock.getDocument(doc_id)).thenReturn(doc);
+        when(engineMock.getRxVertx()).thenReturn(vertx);
+
+        step.init(engineMock,new JsonObject().put("timeout_ms",50));
+
+        step.execute(doc_id).timeout(3,TimeUnit.SECONDS).subscribe(
+                s -> needExceptionFinishTest(s, null, testContext, TimeoutException.class),
+                e -> needExceptionFinishTest(e, null, testContext, TimeoutException.class),
+                () -> needExceptionFinishTest(null,null,testContext, TimeoutException.class) );
+
     }
 }
