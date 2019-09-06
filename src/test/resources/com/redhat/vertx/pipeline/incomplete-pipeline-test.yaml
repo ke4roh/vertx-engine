@@ -1,0 +1,11 @@
+---
+- name: Copy a thing
+  class: com.redhat.vertx.pipeline.steps.Copy
+  vars:
+    from: "{{doc.q}}"
+  register: r
+- name: Copy something else
+  class: com.redhat.vertx.pipeline.steps.Copy
+  vars:
+    from: "{{doc.absent}}"
+  register: x
