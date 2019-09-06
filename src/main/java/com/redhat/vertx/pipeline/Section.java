@@ -1,11 +1,15 @@
 package com.redhat.vertx.pipeline;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import com.redhat.vertx.Engine;
+import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.Completable;
+import io.reactivex.CompletableEmitter;
 import io.reactivex.Maybe;
+import io.reactivex.MaybeEmitter;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -59,62 +63,115 @@ public class Section extends DocBasedDisposableManager implements Step {
         EventBus bus = engine.getEventBus();
         bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", uuid));
 
-        return Maybe.create(emitter ->
-            addDisposable(uuid,
-                    Completable.concat(
-                            steps.stream().map(step -> executeStep(step,uuid)).collect(Collectors.toList())
-                    ).subscribe(()-> {
-                        // this is a section
-                        emitter.onComplete();
-                        bus.publish(EventBusMessage.SECTION_COMPLETED,
-                                name,
-                                new DeliveryOptions().addHeader("uuid", uuid)
-                        );
-                    }, (err) -> {
-                        emitter.tryOnError(err);
-                        bus.publish(EventBusMessage.SECTION_ERRORED,
-                                new JsonArray(Arrays.asList(name, err.toString())),
-                                new DeliveryOptions().addHeader("uuid", uuid)
-                        );
-                    }))
+        return Maybe.create(source ->
+            executeExecutors(
+                    source,
+                    steps.stream().map(step -> new StepExecutor(step, uuid)).collect(Collectors.toList()),
+                    0)
         );
     }
 
-    /**
-     * This is fundamentally the step executor.  When a step executes, these things happen:
-     * 1. The step executes and produces some result
-     * 2. The result gets put on an event to be added to the document
-     * 3. The result is added to the document, and an event is fired for the document change
-     * 4. The step is complete when its change is stored in the document
-     *
-     * If there is no "register" for a step, then the step is complete immediately after execution.
-     */
-    private Completable executeStep(Step step, String uuid) {
-        return Completable.create(source -> {
-            Maybe<JsonObject> maybe = step.execute(uuid);
-            addDisposable(uuid,maybe.subscribe(onSuccess -> {
-                String register = onSuccess.getMap().keySet().iterator().next();
-
-                // register to get the doc changed event (Engine fires that)
-                EventBus bus = engine.getEventBus();
-                addDisposable(uuid,bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
-                        .toObservable()
-                        .filter(msg -> register.equals(msg.body())) // identify the matching doc changed event (matching)
-                        .subscribe(msg -> {
-                            source.onComplete(); // this step is complete
-                            step.finish(uuid);
-                        } , err -> {
-                            source.onError(err);
-                            step.finish(uuid);
-                        })
-                );
-
-                // fire event to change the doc (Engine listens)
-                bus.publish(EventBusMessage.CHANGE_REQUEST, onSuccess, new DeliveryOptions().addHeader("uuid", uuid));
-            }, source::onError, () -> {
+    private void executeExecutors(MaybeEmitter<JsonObject> source, List<StepExecutor> executors, long stepsCompleted) {
+        addDisposable(executors.stream().findAny().get().documentId,Completable.concat(
+                executors.stream()
+                        .filter(x->x.stepStatus.tryIt)
+                        .map(StepExecutor::executeStep)
+                        .collect(Collectors.toList())
+        ).subscribe(() -> {
+            long newStepsCompleted = executors.stream().filter(x -> x.stepStatus.stopped).count();
+            if ((newStepsCompleted > stepsCompleted) && (stepsCompleted < steps.size())) {
+                executeExecutors(source,executors,newStepsCompleted);
+            } else {
+                executors.forEach(x->x.finish());
                 source.onComplete();
-                step.finish(uuid);
-            }));
-        });
+            }
+        }));
+    }
+
+    enum StepStatus {
+        //       stopped, tryIt
+        NASCENT (false  , true),
+        RUNNING (false  , false),
+        COMPLETE(true   , false),
+        BLOCKED (true   , true),
+        FAILED  (true   , false);
+
+        final boolean stopped;
+        final boolean tryIt;
+        StepStatus(boolean stopped, boolean tryIt) {
+            this.stopped = stopped;
+            this.tryIt = tryIt;
+        }
+    }
+
+    private class StepExecutor extends DocBasedDisposableManager {
+        Step step;
+        String documentId;
+        StepStatus stepStatus;
+
+        public StepExecutor(Step step, String documentId) {
+            this.step=step;
+            this.documentId = documentId;
+            this.stepStatus = StepStatus.NASCENT;
+        }
+
+        /**
+         * This is fundamentally the step executor.  When a step executes, these things happen:
+         * 1. The step executes and produces some result
+         * 2. The result gets put on an event to be added to the document
+         * 3. The result is added to the document, and an event is fired for the document change
+         * 4. The step is complete when its change is stored in the document
+         *
+         * If there is no "register" for a step, then the step is complete immediately after execution.
+         *
+         * @return a Completable which will indicate that the stepStatus should be re-evaluated, or an exception
+         * if it has failed.
+         */
+        Completable executeStep() {
+            return Completable.create(source -> {
+                stepStatus = StepStatus.RUNNING;
+                Maybe<JsonObject> maybe = step.execute(documentId);
+                addDisposable(documentId,maybe.subscribe(onSuccess -> {
+                    String register = onSuccess.getMap().keySet().iterator().next();
+
+                    // register to get the doc changed event (Engine fires that)
+                    EventBus bus = engine.getEventBus();
+                    addDisposable(documentId,bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
+                            .toObservable()
+                            .filter(msg -> register.equals(msg.body())) // identify the matching doc changed event (matching)
+                            .subscribe(msg -> {
+                                stepStatus = StepStatus.COMPLETE;
+                                source.onComplete(); // this step is complete
+                                step.finish(documentId);
+                            } , err -> errorToBlockedOrFailed(source, err)
+                            )
+                    );
+
+                    // fire event to change the doc (Engine listens)
+                    bus.publish(EventBusMessage.CHANGE_REQUEST, onSuccess, new DeliveryOptions().addHeader("uuid", documentId));
+                }, err-> errorToBlockedOrFailed(source, err),
+                () -> {
+                    stepStatus = StepStatus.COMPLETE;
+                    source.onComplete();
+                    step.finish(documentId);
+                }));
+            });
+        } // executeStep
+
+        private void errorToBlockedOrFailed(CompletableEmitter source, Throwable err) {
+            if (err instanceof StepDependencyNotMetException || err instanceof MissingParameterException) {
+                stepStatus = StepStatus.BLOCKED;
+                source.onComplete();
+            } else {
+                stepStatus = StepStatus.FAILED;
+                source.onError(err);
+                step.finish(documentId);
+            }
+        }
+
+        private void finish() {
+            step.finish(documentId);
+            this.finish(documentId);
+        }
     }
 }

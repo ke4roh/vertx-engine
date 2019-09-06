@@ -1,11 +1,10 @@
 package com.redhat.vertx.pipeline;
 
-import io.reactivex.Completable;
 import io.reactivex.disposables.Disposable;
 
 import java.util.*;
 
-public abstract class DocBasedDisposableManager implements Step {
+public abstract class DocBasedDisposableManager {
     private Map<String, Collection<Disposable>> disposables = new HashMap<>();
 
 
@@ -19,7 +18,6 @@ public abstract class DocBasedDisposableManager implements Step {
         d.addAll(disposables);
     }
 
-    @Override
     public void finish(String uuid) {
         Collection<Disposable> doomed = disposables.remove(uuid);
         if (doomed != null) {
