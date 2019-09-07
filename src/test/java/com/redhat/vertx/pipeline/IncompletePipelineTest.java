@@ -20,7 +20,7 @@ public class IncompletePipelineTest {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/incomplete-pipeline-test.yaml"));
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject().put("q","foo");
-        JsonObject newDoc = e.execute(inputDoc).timeout(1, TimeUnit.SECONDS).blockingGet();
+        JsonObject newDoc = e.execute(inputDoc).timeout(1500, TimeUnit.MILLISECONDS).blockingGet();
         assertThat(newDoc.getString("q")).isEqualTo("foo");
         assertThat(newDoc.getString("r")).isEqualTo("foo");
         assertThat(newDoc.containsKey("absent")).isFalse();

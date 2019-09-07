@@ -65,26 +65,47 @@ public class Section extends DocBasedDisposableManager implements Step {
         return Maybe.create(source ->
             executeExecutors(
                     source,
-                    steps.stream().map(step -> new StepExecutor(step, uuid)).collect(Collectors.toList()),
-                    0)
+                    steps.stream().map(step -> new StepExecutor(step, uuid)).collect(Collectors.toList()))
         );
     }
 
-    private void executeExecutors(MaybeEmitter<JsonObject> source, List<StepExecutor> executors, long stepsCompleted) {
-        addDisposable(executors.stream().findAny().get().documentId,Completable.concat(
+    /**
+     * Run the executors until they all complete or are stopped.
+     * @param source  The MaybeEmitter for this Section's execution
+     * @param executors The list of executors
+     */
+    private void executeExecutors(MaybeEmitter<JsonObject> source, List<StepExecutor> executors) {
+        if (executors.isEmpty()) {
+            return;
+        }
+        String docId = executors.stream().findAny().get().documentId;
+        addDisposable(docId,Completable.concat(
                 executors.stream()
                         .filter(x->x.stepStatus.tryIt)
-                        .map(StepExecutor::executeStep)
-                        .collect(Collectors.toList())
-        ).subscribe(() -> {
-            long newStepsCompleted = executors.stream().filter(x -> x.stepStatus.stopped).count();
-            if ((newStepsCompleted > stepsCompleted) && (stepsCompleted < steps.size())) {
-                executeExecutors(source,executors,newStepsCompleted);
-            } else {
-                executors.forEach(x->x.finish());
-                source.onComplete();
-            }
-        }));
+                        .map(stepExecutor -> {
+                            return Completable.create(stepCompleted -> {
+                                addDisposable(docId, stepExecutor.executeStep().subscribe(() -> {
+                                    switch (stepExecutor.stepStatus) {
+                                        case COMPLETE:
+                                            if (executors.stream().anyMatch(x->x.stepStatus.tryIt)) {
+                                                executeExecutors(source, executors);
+                                            }
+                                        case FAILED:
+                                            stepCompleted.onComplete();
+                                            break;
+                                        case BLOCKED:
+                                            if (executors.stream().allMatch(x-> x.stepStatus.stopped)) {
+                                                stepCompleted.onComplete();
+                                            }
+                                            break;
+                                        case NASCENT:
+                                        case RUNNING:
+                                            throw new IllegalStateException("How did we get here?");
+                                    }
+                                }));
+                            });
+                        }).collect(Collectors.toList()))
+        .subscribe(source::onComplete));
     }
 
     enum StepStatus {
