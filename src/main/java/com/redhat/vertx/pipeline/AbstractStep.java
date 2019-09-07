@@ -1,5 +1,6 @@
 package com.redhat.vertx.pipeline;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -19,7 +20,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     protected JsonObject vars;
     protected Engine engine;
     protected String name;
-    private long timeout;
+    private Duration timeout;
     private String registerTo;
     private boolean initialized;
 
@@ -29,7 +30,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
         this.engine = engine;
         name = config.getString("name");
         vars = config.getJsonObject("vars", new JsonObject());
-        timeout = config.getLong("timeout_ms", 5000L);
+        timeout = Duration.parse(config.getString("timeout", "PT5.000S"));
         registerTo = config.getString("register");
         initialized = true;
         return Completable.complete();
@@ -51,7 +52,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
         assert initialized;
         JsonObject env = getEnvironment(docId);
         return Maybe.create(source -> addDisposable(docId,
-                executeSlow(env).timeout(timeout, TimeUnit.MILLISECONDS)
+                executeSlow(env).timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
                 .subscribe(
                 rval -> {
                     if (registerTo == null) {

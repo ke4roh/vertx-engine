@@ -116,7 +116,7 @@ public class AbstractStepTest {
         when(engineMock.getDocument(doc_id)).thenReturn(doc);
         when(engineMock.getRxVertx()).thenReturn(vertx);
 
-        step.init(engineMock,new JsonObject().put("timeout_ms",50));
+        step.init(engineMock,new JsonObject().put("timeout","PT0.050S"));
 
         step.execute(doc_id).timeout(3,TimeUnit.SECONDS).subscribe(
                 s -> needExceptionFinishTest(s, null, testContext, TimeoutException.class),
