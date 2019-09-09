@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import com.redhat.vertx.pipeline.LogCapturer;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,11 +15,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 public class TestJinjaTemplateProcessor {
-    private final LogCapturer logCapturer = new LogCapturer(JinjaTemplateProcessor.class);
+    private LogCapturer logCapturer;
 
     @BeforeEach
-    public void attachLogCapturer() {
-        logCapturer.attachLogCapturer();
+    public void attachLogCapturer() throws IOException {
+        logCapturer = new LogCapturer(JinjaTemplateProcessor.class);
+        logCapturer.prepLogCapturer();
     }
 
     @Test
@@ -52,6 +52,8 @@ public class TestJinjaTemplateProcessor {
     @Test
     public void testLogFatal() throws Exception {
         var processor = new JinjaTemplateProcessor();
+        logCapturer.setLevel(Level.ALL);
+
         processor.applyTemplate(Collections.emptyMap(), "{{ gr@$%^#%^eeting }} User!");
 
         var capturedLog = logCapturer.getTestCapturedLog();
@@ -66,7 +68,7 @@ public class TestJinjaTemplateProcessor {
         var context = new HashMap<String, Object>();
         context.put("greeting","{{salutations}}");
         context.put("salutations","{{greeting}}");
-        logCapturer.log.setLevel(Level.ALL);
+        logCapturer.setLevel(Level.ALL);
 
         processor.applyTemplate(context, "{{greeting}}");
 

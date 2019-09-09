@@ -1,9 +1,18 @@
 package com.redhat.vertx.pipeline;
 
+import java.io.FileNotFoundException;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import com.redhat.ResourceUtils;
 import com.redhat.vertx.DocumentLogger;
 import com.redhat.vertx.Engine;
-import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -13,14 +22,6 @@ import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.kohsuke.MetaInfServices;
-
-import java.io.FileNotFoundException;
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -86,7 +87,7 @@ public class PipelineIntegrationTest {
         // Watch to see that the correct fields are set in the correct order
         Iterator<String> expected = Arrays.asList("Lorem ipsum dolor sit".split(" ")).iterator();
         Pattern fieldSetPattern = Pattern.compile("Document [0-9a-f\\-]+ field (\\w+) set.");
-        logCapturer.attachLogCapturer(vertx).map(msg -> {
+        logCapturer.attachLogCapturer().map(msg -> {
             Matcher matcher = fieldSetPattern.matcher(msg);
             if (matcher.find()) {
                 return matcher.group(1);
