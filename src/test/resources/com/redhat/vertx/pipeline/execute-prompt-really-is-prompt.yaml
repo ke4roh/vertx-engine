@@ -1,0 +1,18 @@
+---
+- name: Sleep half a second
+  class: com.redhat.vertx.pipeline.PipelineIntegrationTest$Sleep
+  vars: { duration: "PT0.5S" }
+  register: dolor
+- name: Copy a value
+  class: com.redhat.vertx.pipeline.steps.Copy
+  vars: { from: "foo" }
+  register: Lorem
+- name: Depend on that other step
+  class: com.redhat.vertx.pipeline.steps.Copy
+  vars: { from: "{{doc.Lorem}}" }
+  register: ipsum
+- name: Depend on the first step
+  class: com.redhat.vertx.pipeline.steps.Copy
+  vars: { from: "{{doc.dolor}}" }
+  register: sit
+

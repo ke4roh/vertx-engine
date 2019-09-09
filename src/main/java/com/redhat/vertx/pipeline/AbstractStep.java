@@ -10,6 +10,7 @@ import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.*;
 import io.reactivex.disposables.Disposable;
 import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.core.Vertx;
 
 /**
  * Abstract step offers code for managing steps that might execute longer
@@ -19,6 +20,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     protected JsonObject vars;
     protected Engine engine;
     protected String name;
+    protected Vertx vertx;
     private long timeout;
     private String registerTo;
     private boolean initialized;
@@ -49,6 +51,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     @Override
     public final Maybe<JsonObject> execute(String docId) {
         assert initialized;
+        this.vertx=engine.getRxVertx();
         JsonObject env = getEnvironment(docId);
         return Maybe.create(source -> addDisposable(docId,
                 executeSlow(env).timeout(timeout, TimeUnit.MILLISECONDS)

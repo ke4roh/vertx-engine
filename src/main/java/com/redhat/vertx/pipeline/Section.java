@@ -102,10 +102,13 @@ public class Section extends DocBasedDisposableManager implements Step {
                                         case RUNNING:
                                             throw new IllegalStateException("How did we get here?");
                                     }
-                                }));
+                                }, source::onError));
                             });
                         }).collect(Collectors.toList()))
-        .subscribe(source::onComplete));
+        .subscribe(() -> {
+            source.onComplete();
+            executors.forEach(StepExecutor::finish);
+        }));
     }
 
     enum StepStatus {
@@ -149,6 +152,7 @@ public class Section extends DocBasedDisposableManager implements Step {
          */
         Completable executeStep() {
             return Completable.create(source -> {
+                assert stepStatus == StepStatus.BLOCKED || stepStatus == StepStatus.NASCENT;
                 stepStatus = StepStatus.RUNNING;
                 Maybe<JsonObject> maybe = step.execute(documentId);
                 addDisposable(documentId,maybe.subscribe(onSuccess -> {
@@ -162,7 +166,6 @@ public class Section extends DocBasedDisposableManager implements Step {
                             .subscribe(msg -> {
                                 stepStatus = StepStatus.COMPLETE;
                                 source.onComplete(); // this step is complete
-                                step.finish(documentId);
                             } , err -> errorToBlockedOrFailed(source, err)
                             )
                     );
@@ -173,7 +176,6 @@ public class Section extends DocBasedDisposableManager implements Step {
                 () -> {
                     stepStatus = StepStatus.COMPLETE;
                     source.onComplete();
-                    step.finish(documentId);
                 }));
             });
         } // executeStep
@@ -185,7 +187,6 @@ public class Section extends DocBasedDisposableManager implements Step {
             } else {
                 stepStatus = StepStatus.FAILED;
                 source.onError(err);
-                step.finish(documentId);
             }
         }
 
