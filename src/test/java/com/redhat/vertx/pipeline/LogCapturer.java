@@ -3,6 +3,7 @@ package com.redhat.vertx.pipeline;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.StreamHandler;
@@ -53,7 +54,7 @@ public class LogCapturer {
                         if (line == null) {
                             break;
                         }
-                        subscriber.onNext(line);
+                        Arrays.asList(line.split("$")).forEach(l -> subscriber.onNext(l));
 
                     } catch (IOException e) {
                         subscriber.onError(e);

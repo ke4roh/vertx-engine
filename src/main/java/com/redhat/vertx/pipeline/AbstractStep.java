@@ -117,4 +117,8 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     protected void addDisposable(JsonObject env, Disposable disposable) {
         super.addDisposable(env.getJsonObject("doc").getString(Engine.DOC_UUID), disposable);
     }
+
+    public String getName() {
+        return name;
+    }
 }

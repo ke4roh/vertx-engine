@@ -41,4 +41,8 @@ public interface Step {
      */
     public void finish(String uuid);
 
+    /**
+     * @return The name given by the pipeline to describe this step
+     */
+    public String getName();
 }

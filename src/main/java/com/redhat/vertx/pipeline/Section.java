@@ -1,6 +1,7 @@
 package com.redhat.vertx.pipeline;
 
 import java.util.*;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.redhat.vertx.Engine;
@@ -17,6 +18,7 @@ import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(Step.class)
 public class Section extends DocBasedDisposableManager implements Step {
+    private static final Logger logger = Logger.getLogger(Section.class.getName());
     private Engine engine;
     private String name;
     private List<Step> steps;
@@ -62,6 +64,7 @@ public class Section extends DocBasedDisposableManager implements Step {
         EventBus bus = engine.getEventBus();
         bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", uuid));
 
+        logger.fine(() -> Thread.currentThread().getName() + " Executing all steps for section " + getName());
         return Maybe.create(source ->
             executeExecutors(
                     source,
@@ -78,23 +81,35 @@ public class Section extends DocBasedDisposableManager implements Step {
         if (executors.isEmpty()) {
             return;
         }
+        logger.fine(() ->Thread.currentThread().getName() + " executing pending steps in section " + getName());
         String docId = executors.stream().findAny().get().documentId;
         addDisposable(docId,Completable.concat(
                 executors.stream()
                         .filter(x->x.stepStatus.tryIt)
                         .map(stepExecutor -> {
+                            logger.fine(() -> Thread.currentThread().getName() + " Executing step "
+                                    + stepExecutor.step.getName() + " (" + stepExecutor.stepStatus + ")");
+                            stepExecutor.setStepStatus(StepStatus.RUNNING);
                             return Completable.create(stepCompleted -> {
                                 addDisposable(docId, stepExecutor.executeStep().subscribe(() -> {
+
                                     switch (stepExecutor.stepStatus) {
                                         case COMPLETE:
+                                            logger.fine(() -> Thread.currentThread().getName() + " Completed step " + stepExecutor.step.getName());
                                             if (executors.stream().anyMatch(x->x.stepStatus.tryIt)) {
+                                                logger.fine(() -> Thread.currentThread().getName() + " Starting pending steps post " + stepExecutor.step.getName());
                                                 executeExecutors(source, executors);
                                             }
+                                            stepCompleted.onComplete();
+                                            break;
                                         case FAILED:
+                                            logger.fine(() -> Thread.currentThread().getName() + " Failed step " + stepExecutor.step.getName());
                                             stepCompleted.onComplete();
                                             break;
                                         case BLOCKED:
+                                            logger.fine(() -> "Step " + stepExecutor.step.getName() + " blocked");
                                             if (executors.stream().allMatch(x-> x.stepStatus.stopped)) {
+                                                logger.fine(() -> Thread.currentThread().getName() + " All other steps also blocked, ending.");
                                                 stepCompleted.onComplete();
                                             }
                                             break;
@@ -128,6 +143,7 @@ public class Section extends DocBasedDisposableManager implements Step {
     }
 
     private class StepExecutor extends DocBasedDisposableManager {
+        private Logger logger = Logger.getLogger(StepExecutor.class.getName());
         Step step;
         String documentId;
         StepStatus stepStatus;
@@ -152,8 +168,6 @@ public class Section extends DocBasedDisposableManager implements Step {
          */
         Completable executeStep() {
             return Completable.create(source -> {
-                assert stepStatus == StepStatus.BLOCKED || stepStatus == StepStatus.NASCENT;
-                stepStatus = StepStatus.RUNNING;
                 Maybe<JsonObject> maybe = step.execute(documentId);
                 addDisposable(documentId,maybe.subscribe(onSuccess -> {
                     String register = onSuccess.getMap().keySet().iterator().next();
@@ -164,7 +178,7 @@ public class Section extends DocBasedDisposableManager implements Step {
                             .toObservable()
                             .filter(msg -> register.equals(msg.body())) // identify the matching doc changed event (matching)
                             .subscribe(msg -> {
-                                stepStatus = StepStatus.COMPLETE;
+                                setStepStatus(StepStatus.COMPLETE);
                                 source.onComplete(); // this step is complete
                             } , err -> errorToBlockedOrFailed(source, err)
                             )
@@ -174,11 +188,36 @@ public class Section extends DocBasedDisposableManager implements Step {
                     bus.publish(EventBusMessage.CHANGE_REQUEST, onSuccess, new DeliveryOptions().addHeader("uuid", documentId));
                 }, err-> errorToBlockedOrFailed(source, err),
                 () -> {
-                    stepStatus = StepStatus.COMPLETE;
+                    setStepStatus(StepStatus.COMPLETE);
                     source.onComplete();
                 }));
             });
         } // executeStep
+
+        private void setStepStatus(StepStatus newStatus) {
+            logger.fine(() -> Thread.currentThread().getName() + " Step " + step.getName() + " from " + stepStatus + " to " + newStatus );
+            try {
+                switch (stepStatus) {
+                    case NASCENT:
+                        assert newStatus == StepStatus.RUNNING;
+                        break;
+                    case RUNNING:
+                        assert newStatus.stopped;
+                        break;
+                    case BLOCKED:
+                        assert newStatus == StepStatus.RUNNING;
+                        break;
+                    case FAILED:
+                    case COMPLETE:
+                        assert false;
+                }
+            } catch (AssertionError e) {
+                String msg = "Illegal state transition for step " + step.getName() + " from " + stepStatus + " to " + newStatus;
+                logger.warning(msg);
+                throw new IllegalStateException(msg);
+            }
+            stepStatus = newStatus;
+        }
 
         private void errorToBlockedOrFailed(CompletableEmitter source, Throwable err) {
             if (err instanceof StepDependencyNotMetException || err instanceof MissingParameterException) {

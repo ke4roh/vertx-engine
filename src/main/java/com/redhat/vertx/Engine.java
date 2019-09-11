@@ -99,11 +99,11 @@ public class Engine extends AbstractVerticle {
                                                                  this::processChangeRequest);
 
         return Single.create(source ->
-                pipeline.execute(uuid).subscribe(
+                getRxVertx().runOnContext(event -> pipeline.execute(uuid).subscribe(
                         result -> finishDoc(uuid, bus, changeWatcher, source, null),
                         err -> finishDoc(uuid, bus, changeWatcher, source, err),
                         () -> finishDoc(uuid, bus, changeWatcher, source, null)
-                ));
+                )));
     }
 
     private void processChangeRequest(Message<JsonObject> delta) {

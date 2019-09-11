@@ -14,11 +14,13 @@ import org.kohsuke.MetaInfServices;
  */
 @MetaInfServices(Step.class)
 public class HelloWorldStep implements Step {
+    private String stepName;
     private String name;
     private String registerTo;
 
     @Override
     public Completable init(Engine engine, JsonObject config) {
+        stepName = config.getString("name","HelloWorld");
         name = config.getJsonObject("vars",new JsonObject()).getString("name","world");
         registerTo = config.getString("register","greeting");
         return Completable.complete();
@@ -31,6 +33,11 @@ public class HelloWorldStep implements Step {
 
     @Override
     public void finish(String uuid) {
+    }
+
+    @Override
+    public String getName() {
+        return stepName;
     }
 
 }
