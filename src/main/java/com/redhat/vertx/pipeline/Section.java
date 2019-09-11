@@ -86,44 +86,50 @@ public class Section extends DocBasedDisposableManager implements Step {
         addDisposable(docId,Completable.concat(
                 executors.stream()
                         .filter(x->x.stepStatus.tryIt)
-                        .map(stepExecutor -> {
-                            logger.fine(() -> Thread.currentThread().getName() + " Executing step "
-                                    + stepExecutor.step.getName() + " (" + stepExecutor.stepStatus + ")");
-                            stepExecutor.setStepStatus(StepStatus.RUNNING);
-                            return Completable.create(stepCompleted -> {
-                                addDisposable(docId, stepExecutor.executeStep().subscribe(() -> {
-
-                                    switch (stepExecutor.stepStatus) {
-                                        case COMPLETE:
-                                            logger.fine(() -> Thread.currentThread().getName() + " Completed step " + stepExecutor.step.getName());
-                                            if (executors.stream().anyMatch(x->x.stepStatus.tryIt)) {
-                                                logger.fine(() -> Thread.currentThread().getName() + " Starting pending steps post " + stepExecutor.step.getName());
-                                                executeExecutors(source, executors);
-                                            }
-                                            stepCompleted.onComplete();
-                                            break;
-                                        case FAILED:
-                                            logger.fine(() -> Thread.currentThread().getName() + " Failed step " + stepExecutor.step.getName());
-                                            stepCompleted.onComplete();
-                                            break;
-                                        case BLOCKED:
-                                            logger.fine(() -> "Step " + stepExecutor.step.getName() + " blocked");
-                                            if (executors.stream().allMatch(x-> x.stepStatus.stopped)) {
-                                                logger.fine(() -> Thread.currentThread().getName() + " All other steps also blocked, ending.");
-                                                stepCompleted.onComplete();
-                                            }
-                                            break;
-                                        case NASCENT:
-                                        case RUNNING:
-                                            throw new IllegalStateException("How did we get here?");
-                                    }
-                                }, source::onError));
-                            });
-                        }).collect(Collectors.toList()))
+                        .map(stepExecutor -> executeSingleStep(source, executors, docId, stepExecutor))
+                        .collect(Collectors.toList()))
         .subscribe(() -> {
             source.onComplete();
             executors.forEach(StepExecutor::finish);
         }));
+    }
+
+    private Completable executeSingleStep(MaybeEmitter<JsonObject> source, List<StepExecutor> executors, String docId, StepExecutor stepExecutor) {
+        logger.fine(() -> Thread.currentThread().getName() + " Executing step "
+                + stepExecutor.step.getName() + " (" + stepExecutor.stepStatus + ")");
+        stepExecutor.setStepStatus(StepStatus.RUNNING);
+        return Completable.create(stepCompleted -> {
+            addDisposable(docId, stepExecutor.executeStep().subscribe(() ->
+                postStepExecution(source, executors, stepExecutor, stepCompleted)
+            , source::onError));
+        });
+    }
+
+    private void postStepExecution(MaybeEmitter<JsonObject> source, List<StepExecutor> executors, StepExecutor stepExecutor, CompletableEmitter stepCompleted) {
+        switch (stepExecutor.stepStatus) {
+            case COMPLETE:
+                logger.fine(() -> Thread.currentThread().getName() + " Completed step " + stepExecutor.step.getName());
+                if (executors.stream().anyMatch(x->x.stepStatus.tryIt)) {
+                    logger.fine(() -> Thread.currentThread().getName() + " Starting pending steps post " + stepExecutor.step.getName());
+                    executeExecutors(source, executors);
+                }
+                stepCompleted.onComplete();
+                break;
+            case FAILED:
+                logger.fine(() -> Thread.currentThread().getName() + " Failed step " + stepExecutor.step.getName());
+                stepCompleted.onComplete();
+                break;
+            case BLOCKED:
+                logger.fine(() -> "Step " + stepExecutor.step.getName() + " blocked");
+                if (executors.stream().allMatch(x-> x.stepStatus.stopped)) {
+                    logger.fine(() -> Thread.currentThread().getName() + " All other steps also blocked, ending.");
+                    stepCompleted.onComplete();
+                }
+                break;
+            case NASCENT:
+            case RUNNING:
+                throw new IllegalStateException("How did we get here?");
+        }
     }
 
     enum StepStatus {
@@ -142,6 +148,12 @@ public class Section extends DocBasedDisposableManager implements Step {
         }
     }
 
+    /**
+     * Responsibilities:
+     * - Maintain the progression of each step's status throughout section execution
+     * - Get results from executing steps into the document
+     * - Mark steps {@link StepStatus#BLOCKED} if their dependencies weren't met
+     */
     private class StepExecutor extends DocBasedDisposableManager {
         private Logger logger = Logger.getLogger(StepExecutor.class.getName());
         Step step;
@@ -155,7 +167,7 @@ public class Section extends DocBasedDisposableManager implements Step {
         }
 
         /**
-         * This is fundamentally the step executor.  When a step executes, these things happen:
+         * Execute a step.  These are the key events:
          * 1. The step executes and produces some result
          * 2. The result gets put on an event to be added to the document
          * 3. The result is added to the document, and an event is fired for the document change
@@ -163,36 +175,43 @@ public class Section extends DocBasedDisposableManager implements Step {
          *
          * If there is no "register" for a step, then the step is complete immediately after execution.
          *
+         * The stepStatus must be set to running before this call.
+         *
          * @return a Completable which will indicate that the stepStatus should be re-evaluated, or an exception
          * if it has failed.
          */
         Completable executeStep() {
             return Completable.create(source -> {
+                assert stepStatus == StepStatus.RUNNING;
                 Maybe<JsonObject> maybe = step.execute(documentId);
-                addDisposable(documentId,maybe.subscribe(onSuccess -> {
-                    String register = onSuccess.getMap().keySet().iterator().next();
-
-                    // register to get the doc changed event (Engine fires that)
-                    EventBus bus = engine.getEventBus();
-                    addDisposable(documentId,bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
-                            .toObservable()
-                            .filter(msg -> register.equals(msg.body())) // identify the matching doc changed event (matching)
-                            .subscribe(msg -> {
-                                setStepStatus(StepStatus.COMPLETE);
-                                source.onComplete(); // this step is complete
-                            } , err -> errorToBlockedOrFailed(source, err)
-                            )
-                    );
-
-                    // fire event to change the doc (Engine listens)
-                    bus.publish(EventBusMessage.CHANGE_REQUEST, onSuccess, new DeliveryOptions().addHeader("uuid", documentId));
-                }, err-> errorToBlockedOrFailed(source, err),
+                addDisposable(documentId,maybe.subscribe(
+                        onSuccess -> processStepReturnValue(source, onSuccess),
+                        err-> errorToBlockedOrFailed(source, err),
                 () -> {
                     setStepStatus(StepStatus.COMPLETE);
                     source.onComplete();
                 }));
             });
         } // executeStep
+
+        private void processStepReturnValue(CompletableEmitter source, JsonObject returnValue) {
+            String register = returnValue.getMap().keySet().iterator().next();
+
+            // register to get the doc changed event (Engine fires that)
+            EventBus bus = engine.getEventBus();
+            addDisposable(documentId,bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
+                    .toObservable()
+                    .filter(msg -> register.equals(msg.body())) // identify the matching doc changed event (matching)
+                    .subscribe(msg -> {
+                        setStepStatus(StepStatus.COMPLETE);
+                        source.onComplete(); // this step is complete
+                    } , err -> errorToBlockedOrFailed(source, err)
+                    )
+            );
+
+            // fire event to change the doc (Engine listens)
+            bus.publish(EventBusMessage.CHANGE_REQUEST, returnValue, new DeliveryOptions().addHeader("uuid", documentId));
+        }
 
         private void setStepStatus(StepStatus newStatus) {
             logger.fine(() -> Thread.currentThread().getName() + " Step " + step.getName() + " from " + stepStatus + " to " + newStatus );

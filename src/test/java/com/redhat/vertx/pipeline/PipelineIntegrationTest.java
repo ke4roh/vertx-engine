@@ -81,27 +81,28 @@ public class PipelineIntegrationTest {
 
     @Test
     public void testTimingForPromptStepExecution(Vertx vertx, VertxTestContext testContext) throws Exception {
-        Logger log = Logger.getLogger(DocumentLogger.class.getName());
-        LogCapturer logCapturer = new LogCapturer(log);
+        LogCapturer logCapturer = new LogCapturer(DocumentLogger.class.getName());
+        logCapturer.attachLogCapturer();
 
         // Watch to see that the correct fields are set in the correct order
-        Iterator<String> expected = Arrays.asList("Lorem ipsum dolor sit".split(" ")).iterator();
-        Pattern fieldSetPattern = Pattern.compile("Document [0-9a-f\\-]+ field (\\w+) set.");
-        logCapturer.attachLogCapturer().map(msg -> {
-            Matcher matcher = fieldSetPattern.matcher(msg);
-            if (matcher.find()) {
-                return matcher.group(1);
-            } else {
-                return null;
-            }
-        })
-                .filter(Objects::nonNull)
-                .subscribe( field -> assertThat(field).isEqualTo(expected.next()));
+        Iterator<String> expected = Arrays.asList("Lorem ipsum dolor sit Completed".split(" ")).iterator();
+        Pattern fieldSetPattern = Pattern.compile("(?:Document [0-9a-f\\-]+ field (\\w+) set.|(Completed) document)");
 
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/execute-prompt-really-is-prompt.yaml"));
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject();
         e.execute(inputDoc).timeout(1500, TimeUnit.MILLISECONDS).blockingGet();
-        testContext.completeNow(); // TODO This is probably premature since the log will have to finish propagating
+        String log = logCapturer.getTestCapturedLog();
+        Arrays.stream(log.split("\n")).map(msg -> {
+            Matcher matcher = fieldSetPattern.matcher(msg);
+            if (matcher.find()) {
+                String m1 = matcher.group(1);
+                return (m1 == null) ? matcher.group(2) : m1;
+            } else {
+                return null;
+            }
+        }).filter(Objects::nonNull).forEach(field -> assertThat(field).isEqualTo(expected.next()));
+        assertThat(expected.hasNext()).isFalse();
+        testContext.completeNow();
     }
 }
