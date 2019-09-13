@@ -1,6 +1,8 @@
 package com.redhat.vertx.pipeline;
 
 import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -9,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import com.redhat.ResourceUtils;
 import com.redhat.vertx.DocumentLogger;
@@ -38,6 +41,8 @@ public class PipelineIntegrationTest {
 
     @MetaInfServices(Step.class)
     public static class Sleep extends AbstractStep {
+        static Logger logger = Logger.getLogger(Sleep.class.getName());
+
         @Override
         protected Maybe<Object> executeSlow(JsonObject env) {
             Duration duration = Duration.parse(env.getString("duration"));
@@ -50,6 +55,11 @@ public class PipelineIntegrationTest {
             try {
                 Thread.sleep(duration.toMillis());
             } catch (InterruptedException e) {
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+                pw.flush();
+                logger.warning(sw.toString());
                 throw new RuntimeException(e);
             }
             return "Slept " + duration.toString();
@@ -85,15 +95,17 @@ public class PipelineIntegrationTest {
         logCapturer.attachLogCapturer();
 
         // Watch to see that the correct fields are set in the correct order
-        Iterator<String> expected = Arrays.asList("Lorem ipsum dolor sit Completed".split(" ")).iterator();
-        Pattern fieldSetPattern = Pattern.compile("(?:Document [0-9a-f\\-]+ field (\\w+) set.|(Completed) document)");
+        String expectedSequence = "Lorem ipsum dolor sit Completed";
+        Pattern fieldSetPattern = Pattern.compile("(?:(?:Document [0-9a-f\\-]+ field (\\w+) set)|(?:(Completed) document))");
 
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/execute-prompt-really-is-prompt.yaml"));
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject();
+        // TODO make it faster (the sleep is only 1 sec, this should take only slightly longer - for parsing)
         e.execute(inputDoc).timeout(1500, TimeUnit.MILLISECONDS).blockingGet();
+        Thread.sleep(50); // wait for the log to finish writing
         String log = logCapturer.getTestCapturedLog();
-        Arrays.stream(log.split("\n")).map(msg -> {
+        String actualSequence = Arrays.stream(log.split("\n")).map(msg -> {
             Matcher matcher = fieldSetPattern.matcher(msg);
             if (matcher.find()) {
                 String m1 = matcher.group(1);
@@ -101,8 +113,8 @@ public class PipelineIntegrationTest {
             } else {
                 return null;
             }
-        }).filter(Objects::nonNull).forEach(field -> assertThat(field).isEqualTo(expected.next()));
-        assertThat(expected.hasNext()).isFalse();
+        }).filter(Objects::nonNull).collect(Collectors.joining(" "));
+        assertThat(actualSequence).isEqualTo(expectedSequence);
         testContext.completeNow();
     }
 }
