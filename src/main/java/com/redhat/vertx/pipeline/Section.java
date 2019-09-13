@@ -60,6 +60,10 @@ public class Section extends DocBasedDisposableManager implements Step {
     }
 
     public Maybe<JsonObject> execute(String documentId) {
+        if (steps.isEmpty()) {
+            return Maybe.empty();
+        }
+
         // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
         EventBus bus = engine.getEventBus();
         bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", documentId));
@@ -81,7 +85,9 @@ public class Section extends DocBasedDisposableManager implements Step {
 
     private void completeWhenAllStepsStopped(List<StepExecutor> stepExecutors, MaybeEmitter<JsonObject> source) {
         if (stepExecutors.stream().allMatch(x->x.stepStatus.stopped)) {
+            logger.fine(() -> Thread.currentThread().getName() + " Completed section " + getName());
             source.onComplete();
+            finish(stepExecutors.stream().findAny().get().documentId);
         }
     }
 

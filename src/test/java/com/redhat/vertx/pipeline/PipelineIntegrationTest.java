@@ -117,4 +117,17 @@ public class PipelineIntegrationTest {
         assertThat(actualSequence).isEqualTo(expectedSequence);
         testContext.completeNow();
     }
+
+    @Test
+    public void testEmptySection(Vertx vertx, VertxTestContext testContext) throws Exception {
+        Engine e = new Engine("---\n[]");
+        vertx.rxDeployVerticle(e).blockingGet();
+        JsonObject inputDoc = new JsonObject();
+        JsonObject doc = e.execute(inputDoc).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
+
+        assertThat(doc.size()).isEqualTo(1);
+        assertThat(doc.containsKey(Engine.DOC_UUID));
+        testContext.completeNow();
+    }
+
 }
