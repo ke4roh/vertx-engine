@@ -8,6 +8,7 @@ import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.*;
 import io.reactivex.Observable;
+import io.reactivex.disposables.Disposable;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -58,28 +59,30 @@ public class Section extends DocBasedDisposableManager implements Step {
         return Completable.merge(stepCompletables);
     }
 
-    public Maybe<JsonObject> execute(String uuid) {
+    public Maybe<JsonObject> execute(String documentId) {
         // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
         EventBus bus = engine.getEventBus();
-        bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", uuid));
+        bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", documentId));
 
         logger.fine(() -> Thread.currentThread().getName() + " Executing all steps for section " + getName());
-        List<StepExecutor> stepExecutors = steps.stream().map(step -> new StepExecutor(step,uuid)).collect(Collectors.toList());
-        Observable<Message<Object>> changes = bus.consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable().publish().autoConnect();
-        Observable<StepStatus> allSteps = Observable.mergeDelayError(
-                stepExecutors.stream()
-                        .map(sx -> sx.executeStep(changes)).collect(Collectors.toList()));
+        List<StepExecutor> stepExecutors = steps.stream().map(step -> new StepExecutor(step,documentId)).collect(Collectors.toList());
+        Observable<Message<Object>> documentChanges = bus.consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable()
+                .filter(delta -> delta.headers().get("uuid").equals(documentId)).publish().autoConnect();
+        Observable<StepStatus> allStepsStatusChanges = Observable.mergeDelayError(
+                stepExecutors.stream().map(sx -> sx.executeStep(documentChanges)).collect(Collectors.toList()));
         return Maybe.create(source ->
                 addDisposable(
-                        uuid,
-                        allSteps.subscribe(
-                                next -> {
-                                    if (stepExecutors.stream().allMatch(x->x.stepStatus.stopped)) {
-                                        source.onComplete();
-                                    }
-                                },
+                        documentId,
+                        allStepsStatusChanges.subscribe(
+                                next -> completeWhenAllStepsStopped(stepExecutors, source),
                                 source::onError,
                                 source::onComplete)));
+    }
+
+    private void completeWhenAllStepsStopped(List<StepExecutor> stepExecutors, MaybeEmitter<JsonObject> source) {
+        if (stepExecutors.stream().allMatch(x->x.stepStatus.stopped)) {
+            source.onComplete();
+        }
     }
 
 
@@ -111,6 +114,7 @@ public class Section extends DocBasedDisposableManager implements Step {
         String documentId;
         StepStatus stepStatus;
         private ObservableEmitter<StepStatus> subscriber;
+        private Observable<Message<Object>> documentChangedEventStream;
 
 
         StepExecutor(Step step, String documentId) {
@@ -119,9 +123,18 @@ public class Section extends DocBasedDisposableManager implements Step {
             this.stepStatus = StepStatus.NASCENT;
         }
 
-        Observable<StepStatus> executeStep(Observable<Message<Object>> events) {
+        /**
+         *
+         * @param documentChangedEventStream A hot observable monitoring document changed events,
+         *                                   which are cause to re-examine if this step might
+         *                                   execute successfully
+         * @return An observable which will indicate each status change of this step.
+         */
+        Observable<StepStatus> executeStep(Observable<Message<Object>> documentChangedEventStream) {
+            assert subscriber == null;  // only once
             assert stepStatus.tryIt;
-            addDisposable(documentId,events.subscribe(x->executeStep()));
+            this.documentChangedEventStream = documentChangedEventStream;
+            addDisposable(documentChangedEventStream.subscribe(x->executeStep()));
             return Observable.<StepStatus>create(subscriber -> {this.subscriber = subscriber; this.executeStep(); } )
                     .publish().autoConnect().doOnDispose(this::finish);
         }
@@ -142,12 +155,10 @@ public class Section extends DocBasedDisposableManager implements Step {
             if (stepStatus.tryIt && !subscriber.isDisposed()) {
                 setStepStatus(StepStatus.RUNNING);
                 Maybe<JsonObject> maybe = step.execute(documentId);
-                addDisposable(documentId, maybe.subscribe(
+                addDisposable(maybe.subscribe(
                         this::processStepReturnValue,
                         this::errorToBlockedOrFailed,
-                        () -> {
-                            setStepStatus(StepStatus.COMPLETE);
-                        }));
+                        () -> setStepStatus(StepStatus.COMPLETE)));
             }
         } // executeStep
 
@@ -156,18 +167,15 @@ public class Section extends DocBasedDisposableManager implements Step {
 
             // register to get the doc changed event (Engine fires that)
             EventBus bus = engine.getEventBus();
-            addDisposable(documentId,bus.consumer(EventBusMessage.DOCUMENT_CHANGED)
-                    .toObservable()
-                    .filter(msg -> register.equals(msg.body())) // identify the matching doc changed event (matching)
-                    .subscribe(msg -> setStepStatus(StepStatus.COMPLETE), this::errorToBlockedOrFailed)
-            );
+            addDisposable(documentChangedEventStream.filter(msg -> register.equals(msg.body()))
+                    .subscribe(msg -> setStepStatus(StepStatus.COMPLETE), this::errorToBlockedOrFailed));
 
             // fire event to change the doc (Engine listens)
             bus.publish(EventBusMessage.CHANGE_REQUEST, returnValue, new DeliveryOptions().addHeader("uuid", documentId));
         }
 
         private void setStepStatus(StepStatus newStatus) {
-            logger.fine(() -> Thread.currentThread().getName() + " Step " + step.getName() + " from " + stepStatus + " to " + newStatus );
+            logger.finest(() -> Thread.currentThread().getName() + " Step " + step.getName() + " from " + stepStatus + " to " + newStatus );
             try {
                 switch (stepStatus) {
                     case NASCENT:
@@ -202,6 +210,10 @@ public class Section extends DocBasedDisposableManager implements Step {
                 subscriber.onError(err);
                 setStepStatus(StepStatus.FAILED);
             }
+        }
+
+        private void addDisposable(Disposable d) {
+            addDisposable(documentId, d);
         }
 
         private void finish() {
