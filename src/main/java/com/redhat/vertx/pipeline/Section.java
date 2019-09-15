@@ -17,7 +17,8 @@ import io.vertx.reactivex.core.eventbus.Message;
 import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(Step.class)
-public class Section extends DocBasedDisposableManager implements Step {
+public class Section implements Step {
+    private DocBasedDisposableManager disposableManager = new DocBasedDisposableManager();
     private static final Logger logger = Logger.getLogger(Section.class.getName());
     private Engine engine;
     private String name;
@@ -88,9 +89,18 @@ public class Section extends DocBasedDisposableManager implements Step {
             logger.fine(() -> Thread.currentThread().getName() + " Completed section " + getName());
             source.onComplete();
             finish(stepExecutors.stream().findAny().get().documentId);
+            stepExecutors.forEach(StepExecutor::finish);
         }
     }
 
+    @Override
+    public void finish(String documentId) {
+        disposableManager.finish(documentId);
+    }
+
+    private void addDisposable(String documentId, Disposable disposable) {
+        disposableManager.addDisposable(documentId,disposable);
+    }
 
     enum StepStatus {
         //       stopped, tryIt
@@ -114,7 +124,8 @@ public class Section extends DocBasedDisposableManager implements Step {
      * - Get results from executing steps into the document
      * - Mark steps {@link StepStatus#BLOCKED} if their dependencies weren't met
      */
-    private class StepExecutor extends DocBasedDisposableManager {
+    private class StepExecutor {
+        Collection<Disposable> disposables = new ArrayList<>();
         private Logger logger = Logger.getLogger(StepExecutor.class.getName());
         Step step;
         String documentId;
@@ -130,7 +141,7 @@ public class Section extends DocBasedDisposableManager implements Step {
         }
 
         /**
-         *
+         * Execute the step for this section.  This can only be called once for a single instance of step executor.
          * @param documentChangedEventStream A hot observable monitoring document changed events,
          *                                   which are cause to re-examine if this step might
          *                                   execute successfully
@@ -153,9 +164,6 @@ public class Section extends DocBasedDisposableManager implements Step {
          * 4. The step is complete when its change is stored in the document
          *
          * If there is no "register" for a step, then the step is complete immediately after execution.
-         *
-         * The stepStatus must be set to running before this call.
-         *
          */
         private void executeStep() {
             if (stepStatus.tryIt && !subscriber.isDisposed()) {
@@ -206,6 +214,7 @@ public class Section extends DocBasedDisposableManager implements Step {
             subscriber.onNext(stepStatus);
             if (stepStatus==StepStatus.FAILED || stepStatus==StepStatus.COMPLETE) {
                 subscriber.onComplete();
+                finish();
             }
         }
 
@@ -219,13 +228,13 @@ public class Section extends DocBasedDisposableManager implements Step {
         }
 
         private void addDisposable(Disposable d) {
-            addDisposable(documentId, d);
+            disposables.add(d);
         }
 
         private void finish() {
             subscriber.onComplete();
             step.finish(documentId);
-            this.finish(documentId);
+            disposables.forEach(Disposable::dispose);
         }
     }
 }

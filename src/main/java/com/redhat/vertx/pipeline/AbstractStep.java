@@ -16,7 +16,8 @@ import io.vertx.reactivex.core.Vertx;
 /**
  * Abstract step offers code for managing steps that might execute longer
  */
-public abstract class AbstractStep extends DocBasedDisposableManager implements Step {
+public abstract class AbstractStep implements Step {
+    private DocBasedDisposableManager disposableManager = new DocBasedDisposableManager();
     protected Logger logger = Logger.getLogger(this.getClass().getName());
     protected JsonObject vars;
     protected Engine engine;
@@ -115,7 +116,15 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     }
 
     protected void addDisposable(JsonObject env, Disposable disposable) {
-        super.addDisposable(env.getJsonObject("doc").getString(Engine.DOC_UUID), disposable);
+        addDisposable(env.getJsonObject("doc").getString(Engine.DOC_UUID), disposable);
+    }
+
+    protected void addDisposable(String docId, Disposable disposable) {
+        disposableManager.addDisposable(docId, disposable);
+    }
+
+    public void finish(String docId) {
+        disposableManager.finish(docId);
     }
 
     public String getName() {

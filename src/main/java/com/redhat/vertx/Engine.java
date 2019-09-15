@@ -88,21 +88,21 @@ public class Engine extends AbstractVerticle {
      * @return A single which will provide the document at the end of execution
      */
     public Single<JsonObject> execute(JsonObject executionData) {
-        String uuid = UUID.randomUUID().toString();
-        executionData.put(DOC_UUID, uuid);
+        String documentId = UUID.randomUUID().toString();
+        executionData.put(DOC_UUID, documentId);
 
-        docCache.put(uuid, executionData);
+        docCache.put(documentId, executionData);
         EventBus bus = getEventBus();
-        bus.publish(EventBusMessage.DOCUMENT_STARTED, uuid);
+        bus.publish(EventBusMessage.DOCUMENT_STARTED, documentId);
 
         MessageConsumer<JsonObject> changeWatcher = bus.consumer(EventBusMessage.CHANGE_REQUEST,
                                                                  this::processChangeRequest);
 
         return Single.create(source ->
-                getRxVertx().runOnContext(event -> pipeline.execute(uuid).subscribe(
-                        result -> finishDoc(uuid, bus, changeWatcher, source, null),
-                        err -> finishDoc(uuid, bus, changeWatcher, source, err),
-                        () -> finishDoc(uuid, bus, changeWatcher, source, null)
+                getRxVertx().runOnContext(event -> pipeline.execute(documentId).subscribe(
+                        result -> finishDoc(documentId, bus, changeWatcher, source, null),
+                        err -> finishDoc(documentId, bus, changeWatcher, source, err),
+                        () -> finishDoc(documentId, bus, changeWatcher, source, null)
                 )));
     }
 
@@ -116,9 +116,9 @@ public class Engine extends AbstractVerticle {
         getEventBus().publish(EventBusMessage.DOCUMENT_CHANGED, body.iterator().next().getKey(), deliveryOptions);
     }
 
-    private void finishDoc(String uuid, EventBus bus, MessageConsumer<JsonObject> changeWatcher, SingleEmitter<JsonObject> source, Throwable err) {
-        bus.publish(EventBusMessage.DOCUMENT_COMPLETED, uuid);
-        JsonObject doc = docCache.remove(uuid);
+    private void finishDoc(String documentId, EventBus bus, MessageConsumer<JsonObject> changeWatcher, SingleEmitter<JsonObject> source, Throwable err) {
+        bus.publish(EventBusMessage.DOCUMENT_COMPLETED, documentId);
+        JsonObject doc = docCache.remove(documentId);
         changeWatcher.unregister();
         if (err == null) {
             source.onSuccess(doc);
@@ -127,7 +127,7 @@ public class Engine extends AbstractVerticle {
         }
     }
 
-    public JsonObject getDocument(String uuid) {
-        return docCache.get(uuid);
+    public JsonObject getDocument(String documentId) {
+        return docCache.get(documentId);
     }
 }
