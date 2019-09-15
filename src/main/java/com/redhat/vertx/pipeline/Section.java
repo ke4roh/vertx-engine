@@ -78,7 +78,7 @@ public class Section implements Step {
         return Maybe.create(source ->
                 addDisposable(
                         documentId,
-                        allStepsStatusChanges.subscribe(
+                        allStepsStatusChanges.filter(stat -> stat.stopped).subscribe(
                                 next -> completeWhenAllStepsStopped(stepExecutors, source),
                                 source::onError,
                                 source::onComplete)));

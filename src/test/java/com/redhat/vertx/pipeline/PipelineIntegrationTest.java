@@ -71,7 +71,7 @@ public class PipelineIntegrationTest {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/incomplete-pipeline-test.yaml"));
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject().put("q","foo");
-        JsonObject newDoc = e.execute(inputDoc).timeout(1500, TimeUnit.MILLISECONDS).blockingGet();
+        JsonObject newDoc = e.execute(inputDoc).timeout(1000, TimeUnit.MILLISECONDS).blockingGet();
         assertThat(newDoc.getString("q")).isEqualTo("foo");
         assertThat(newDoc.getString("r")).isEqualTo("foo");
         assertThat(newDoc.containsKey("absent")).isFalse();
@@ -126,7 +126,7 @@ public class PipelineIntegrationTest {
         JsonObject doc = e.execute(inputDoc).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
 
         assertThat(doc.size()).isEqualTo(1);
-        assertThat(doc.containsKey(Engine.DOC_UUID));
+        assertThat(doc.containsKey(Engine.DOC_UUID)).isTrue();
         testContext.completeNow();
     }
 
