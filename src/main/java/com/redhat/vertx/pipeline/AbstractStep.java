@@ -1,7 +1,6 @@
 package com.redhat.vertx.pipeline;
 
 import java.time.Duration;
-import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -17,7 +16,6 @@ import io.vertx.reactivex.core.Vertx;
  * Abstract step offers code for managing steps that might execute longer
  */
 public abstract class AbstractStep implements Step {
-    private DocBasedDisposableManager disposableManager = new DocBasedDisposableManager();
     protected Logger logger = Logger.getLogger(this.getClass().getName());
     protected JsonObject vars;
     protected Engine engine;
@@ -55,19 +53,35 @@ public abstract class AbstractStep implements Step {
         assert initialized;
         this.vertx=engine.getRxVertx();
         JsonObject env = getEnvironment(docId);
-        return Maybe.create(source -> addDisposable(docId,
-                executeSlow(env).timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
-                .subscribe(
-                rval -> {
-                    if (registerTo == null) {
-                        source.onComplete();
-                    } else {
-                        source.onSuccess(new JsonObject().put(registerTo, rval));
-                    }
-                },
-                source::onError,
-                source::onComplete
-        )));
+        return new ReturnValueJsonObjectWrapper().execute(env);
+    }
+
+    private class ReturnValueJsonObjectWrapper {
+        private Disposable executeSlowSubscription;
+
+        private Maybe<JsonObject> execute(JsonObject env) {
+
+            return Maybe.<JsonObject>create(source -> executeSlowSubscription =
+                    executeSlow(env)
+                    .timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
+                    .subscribe(
+                            rval -> finishSuccessfully(source, rval),
+                            source::onError,
+                            source::onComplete
+                            )).doAfterTerminate(this::dispose);
+        }
+
+        private void finishSuccessfully(MaybeEmitter<JsonObject> source, Object rval) {
+            if (registerTo == null) {
+                source.onComplete();
+            } else {
+                source.onSuccess(new JsonObject().put(registerTo, rval));
+            }
+        }
+
+        private void dispose() {
+            executeSlowSubscription.dispose();
+        }
     }
 
     protected JsonObject getEnvironment(String docId) {
@@ -113,18 +127,6 @@ public abstract class AbstractStep implements Step {
         } catch (MissingParameterException | StepDependencyNotMetException e) {
             return Maybe.error(e);
         }
-    }
-
-    protected void addDisposable(JsonObject env, Disposable disposable) {
-        addDisposable(env.getJsonObject("doc").getString(Engine.DOC_UUID), disposable);
-    }
-
-    protected void addDisposable(String docId, Disposable disposable) {
-        disposableManager.addDisposable(docId, disposable);
-    }
-
-    public void finish(String docId) {
-        disposableManager.finish(docId);
     }
 
     public String getName() {
