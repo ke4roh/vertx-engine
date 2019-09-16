@@ -4,24 +4,24 @@ import io.reactivex.disposables.Disposable;
 
 import java.util.*;
 
-public abstract class DocBasedDisposableManager {
-    private Map<String, Collection<Disposable>> disposables = new HashMap<>();
+public class DocBasedDisposableManager {
+    private Map<String, Collection<Disposable>> disposablesByDocId = new HashMap<>();
 
 
-    protected void addDisposable(String uuid, Disposable disposable) {
-        this.addDisposable(uuid,Arrays.asList(disposable));
+    public void addDisposable(String documentId, Disposable disposable) {
+        this.addDisposable(documentId,Collections.singletonList(disposable));
     }
 
-    protected void addDisposable(String uuid, Collection disposables) {
-        Collection d = this.disposables.getOrDefault(uuid,new ArrayList<>());
-        this.disposables.put(uuid,d);
-        d.addAll(disposables);
+    public void addDisposable(String documentId, Collection<Disposable> disposables) {
+        Collection<Disposable> listOfDisposables = this.disposablesByDocId.getOrDefault(documentId,new ArrayList<>());
+        this.disposablesByDocId.put(documentId,listOfDisposables);
+        listOfDisposables.addAll(disposables);
     }
 
-    public void finish(String uuid) {
-        Collection<Disposable> doomed = disposables.remove(uuid);
-        if (doomed != null) {
-            doomed.iterator().forEachRemaining(Disposable::dispose);
+    public void finish(String documentId) {
+        Collection<Disposable> doomedDisposables = disposablesByDocId.remove(documentId);
+        if (doomedDisposables != null) {
+            doomedDisposables.forEach(Disposable::dispose);
         }
     }
 

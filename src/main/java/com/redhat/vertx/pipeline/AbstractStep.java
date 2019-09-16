@@ -11,15 +11,18 @@ import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.*;
 import io.reactivex.disposables.Disposable;
 import io.vertx.core.json.JsonObject;
+import io.vertx.reactivex.core.Vertx;
 
 /**
  * Abstract step offers code for managing steps that might execute longer
  */
-public abstract class AbstractStep extends DocBasedDisposableManager implements Step {
+public abstract class AbstractStep implements Step {
+    private DocBasedDisposableManager disposableManager = new DocBasedDisposableManager();
     protected Logger logger = Logger.getLogger(this.getClass().getName());
     protected JsonObject vars;
     protected Engine engine;
     protected String name;
+    protected Vertx vertx;
     private Duration timeout;
     private String registerTo;
     private boolean initialized;
@@ -50,6 +53,7 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     @Override
     public final Maybe<JsonObject> execute(String docId) {
         assert initialized;
+        this.vertx=engine.getRxVertx();
         JsonObject env = getEnvironment(docId);
         return Maybe.create(source -> addDisposable(docId,
                 executeSlow(env).timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
@@ -112,6 +116,18 @@ public abstract class AbstractStep extends DocBasedDisposableManager implements 
     }
 
     protected void addDisposable(JsonObject env, Disposable disposable) {
-        super.addDisposable(env.getJsonObject("doc").getString(Engine.DOC_UUID), disposable);
+        addDisposable(env.getJsonObject("doc").getString(Engine.DOC_UUID), disposable);
+    }
+
+    protected void addDisposable(String docId, Disposable disposable) {
+        disposableManager.addDisposable(docId, disposable);
+    }
+
+    public void finish(String docId) {
+        disposableManager.finish(docId);
+    }
+
+    public String getName() {
+        return name;
     }
 }

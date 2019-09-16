@@ -1,0 +1,4 @@
+---
+- name: FNFE
+  class: com.redhat.vertx.pipeline.PipelineIntegrationTest$FNFE
+  register: f

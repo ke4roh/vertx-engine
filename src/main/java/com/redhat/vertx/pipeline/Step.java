@@ -27,18 +27,22 @@ public interface Step {
 
     /**
      *
-     * @param uuid the key for the document being built (get it from the engine)
+     * @param documentId the key for the document being built (get it from the engine)
      * @return A Maybe containing a single entry with the key to which it is to be registered in the document,
      *    or simply complete if there is no artifact to persist as a result of this step.
      * @throws StepDependencyNotMetException (in the Maybe) if this step should be re-tried upon subsequent document
      *    updates pending population of necessary values.
      */
-    public Maybe<JsonObject> execute(String uuid);
+    public Maybe<JsonObject> execute(String documentId);
 
     /**
      * Called after step execution for a particular document.  This is an opportunity to dispose Disposables and
      * perform other cleanup.
      */
-    public void finish(String uuid);
+    public void finish(String documentId);
 
+    /**
+     * @return The name given by the pipeline to describe this step
+     */
+    public String getName();
 }
