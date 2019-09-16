@@ -32,10 +32,6 @@ public class HelloWorldStep implements Step {
     }
 
     @Override
-    public void finish(String uuid) {
-    }
-
-    @Override
     public String getName() {
         return stepName;
     }

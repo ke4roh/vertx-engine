@@ -18,7 +18,6 @@ import org.kohsuke.MetaInfServices;
 
 @MetaInfServices(Step.class)
 public class Section implements Step {
-    private DocBasedDisposableManager disposableManager = new DocBasedDisposableManager();
     private static final Logger logger = Logger.getLogger(Section.class.getName());
     private Engine engine;
     private String name;
@@ -61,46 +60,59 @@ public class Section implements Step {
     }
 
     public Maybe<JsonObject> execute(String documentId) {
-        if (steps.isEmpty()) {
-            return Maybe.empty();
-        }
-
-        // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
-        EventBus bus = engine.getEventBus();
-        bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", documentId));
-
-        logger.fine(() -> Thread.currentThread().getName() + " Executing all steps for section " + getName());
-        List<StepExecutor> stepExecutors = steps.stream().map(step -> new StepExecutor(step,documentId)).collect(Collectors.toList());
-        Observable<Message<Object>> documentChanges = bus.consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable()
-                .filter(delta -> delta.headers().get("uuid").equals(documentId)).publish().autoConnect();
-        Observable<StepStatus> allStepsStatusChanges = Observable.mergeDelayError(
-                stepExecutors.stream().map(sx -> sx.executeStep(documentChanges)).collect(Collectors.toList()));
-        return Maybe.create(source ->
-                addDisposable(
-                        documentId,
-                        allStepsStatusChanges.filter(stat -> stat.stopped).subscribe(
-                                next -> completeWhenAllStepsStopped(stepExecutors, source),
-                                source::onError,
-                                source::onComplete)));
+        return new SectionExecutor(documentId).execute();
     }
 
-    private void completeWhenAllStepsStopped(List<StepExecutor> stepExecutors, MaybeEmitter<JsonObject> source) {
-        if (stepExecutors.stream().allMatch(x->x.stepStatus.stopped)) {
-            logger.fine(() -> Thread.currentThread().getName() + " Completed section " + getName());
+    private class SectionExecutor {
+        private final String documentId;
+        private List<StepExecutor> stepExecutors;
+        private Disposable statusChangeSubscription;
+
+        private SectionExecutor(String documentId) {
+            this.documentId = documentId;
+        }
+
+        public Maybe<JsonObject> execute() {
+            if (steps.isEmpty()) {
+                return Maybe.empty();
+            }
+
+            // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
+            EventBus bus = engine.getEventBus();
+            bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", documentId));
+
+            logger.fine(() -> Thread.currentThread().getName() + " Executing all steps for section " + getName());
+            stepExecutors = steps.stream().map(step -> new StepExecutor(step, documentId)).collect(Collectors.toList());
+            Observable<Message<Object>> documentChanges = bus.consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable()
+                    .filter(delta -> delta.headers().get("uuid").equals(documentId)).publish().autoConnect();
+            Observable<StepStatus> allStepsStatusChanges = Observable.mergeDelayError(
+                    stepExecutors.stream().map(sx -> sx.executeStep(documentChanges)).collect(Collectors.toList()));
+            return Maybe.create(source ->
+                    statusChangeSubscription = allStepsStatusChanges.filter(stat -> stat.stopped)
+                            .doAfterTerminate(this::dispose)
+                            .subscribe(
+                                    next -> completeWhenAllStepsStopped(source),
+                                    source::onError,
+                                    () -> completeWhenAllStepsComplete(source)));
+        }
+
+        private void completeWhenAllStepsComplete(MaybeEmitter<JsonObject> source) {
             source.onComplete();
-            finish(stepExecutors.stream().findAny().get().documentId);
             stepExecutors.forEach(StepExecutor::finish);
         }
-    }
 
-    @Override
-    public void finish(String documentId) {
-        disposableManager.finish(documentId);
-    }
+        private void completeWhenAllStepsStopped(MaybeEmitter<JsonObject> source) {
+            if (stepExecutors.stream().allMatch(x -> x.stepStatus.stopped)) {
+                logger.fine(() -> Thread.currentThread().getName() + " Completed section " + getName());
+                completeWhenAllStepsComplete(source);
+            }
+        }
 
-    private void addDisposable(String documentId, Disposable disposable) {
-        disposableManager.addDisposable(documentId,disposable);
-    }
+        private void dispose() {
+            statusChangeSubscription.dispose();
+        }
+    } // SectionExecutor
+
 
     enum StepStatus {
         //       stopped, tryIt
@@ -116,9 +128,12 @@ public class Section implements Step {
             this.stopped = stopped;
             this.tryIt = tryIt;
         }
-    }
+    } // StepStatus
 
     /**
+     * The StepExecutor is an adapter between the one-off Step and the stream of statuses it emits after
+     * each attempt at execution.
+     *
      * Responsibilities:
      * - Maintain the progression of each step's status throughout section execution
      * - Get results from executing steps into the document
@@ -132,6 +147,7 @@ public class Section implements Step {
         StepStatus stepStatus;
         private ObservableEmitter<StepStatus> subscriber;
         private Observable<Message<Object>> documentChangedEventStream;
+        private Disposable subscribedChangeStream;
 
 
         StepExecutor(Step step, String documentId) {
@@ -151,9 +167,11 @@ public class Section implements Step {
             assert subscriber == null;  // only once
             assert stepStatus.tryIt;
             this.documentChangedEventStream = documentChangedEventStream;
-            addDisposable(documentChangedEventStream.subscribe(x->executeStep()));
+            subscribedChangeStream = addDisposable(documentChangedEventStream
+                    .doOnComplete(this::noMoreChanges)
+                    .subscribe(x->executeStep()));
             return Observable.<StepStatus>create(subscriber -> {this.subscriber = subscriber; this.executeStep(); } )
-                    .publish().autoConnect().doOnDispose(this::finish);
+                    .publish().autoConnect().doAfterTerminate(this::finish);
         }
 
         /**
@@ -180,12 +198,11 @@ public class Section implements Step {
             String register = returnValue.getMap().keySet().iterator().next();
 
             // register to get the doc changed event (Engine fires that)
-            EventBus bus = engine.getEventBus();
             addDisposable(documentChangedEventStream.filter(msg -> register.equals(msg.body()))
                     .subscribe(msg -> setStepStatus(StepStatus.COMPLETE), this::errorToBlockedOrFailed));
 
             // fire event to change the doc (Engine listens)
-            bus.publish(EventBusMessage.CHANGE_REQUEST, returnValue, new DeliveryOptions().addHeader("uuid", documentId));
+            engine.getEventBus().publish(EventBusMessage.CHANGE_REQUEST, returnValue, new DeliveryOptions().addHeader("uuid", documentId));
         }
 
         private void setStepStatus(StepStatus newStatus) {
@@ -219,7 +236,7 @@ public class Section implements Step {
         }
 
         private void errorToBlockedOrFailed(Throwable err) {
-            if (err instanceof StepDependencyNotMetException || err instanceof MissingParameterException) {
+            if (!subscribedChangeStream.isDisposed() && (err instanceof StepDependencyNotMetException || err instanceof MissingParameterException)) {
                 setStepStatus(StepStatus.BLOCKED);
             } else {
                 subscriber.onError(err);
@@ -227,14 +244,21 @@ public class Section implements Step {
             }
         }
 
-        private void addDisposable(Disposable d) {
+        private Disposable addDisposable(Disposable d) {
             disposables.add(d);
+            return d;
+        }
+
+        /**
+         * This can happen when the document change stream closes.
+         */
+        private void noMoreChanges() {
+            subscribedChangeStream.dispose();
         }
 
         private void finish() {
             subscriber.onComplete();
-            step.finish(documentId);
             disposables.forEach(Disposable::dispose);
         }
-    }
+    } // StepExecutor
 }

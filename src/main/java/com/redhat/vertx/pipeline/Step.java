@@ -36,12 +36,6 @@ public interface Step {
     public Maybe<JsonObject> execute(String documentId);
 
     /**
-     * Called after step execution for a particular document.  This is an opportunity to dispose Disposables and
-     * perform other cleanup.
-     */
-    public void finish(String documentId);
-
-    /**
      * @return The name given by the pipeline to describe this step
      */
     public String getName();
