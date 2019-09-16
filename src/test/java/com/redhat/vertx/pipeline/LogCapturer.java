@@ -1,10 +1,5 @@
 package com.redhat.vertx.pipeline;
 
-import io.vertx.reactivex.MaybeHelper;
-import io.vertx.reactivex.core.Vertx;
-import rx.Observable;
-import rx.observables.StringObservable;
-
 import java.io.*;
 import java.util.logging.Handler;
 import java.util.logging.Logger;
@@ -25,16 +20,6 @@ public class LogCapturer {
 
     public LogCapturer(String logName) {
         this(Logger.getLogger(logName));
-    }
-
-    public Observable<String> attachLogCapturer(Vertx vertx) throws IOException {
-        PipedInputStream bytesIn = new PipedInputStream();
-        logCapturingStream = new PipedOutputStream(bytesIn);
-        Handler[] handlers = log.getParent().getHandlers();
-        customLogHandler = new StreamHandler(logCapturingStream, handlers[0].getFormatter());
-        log.addHandler(customLogHandler);
-        BufferedReader logReader = new BufferedReader(new InputStreamReader(bytesIn));
-        return StringObservable.split(StringObservable.from(logReader),"$");
     }
 
     public void attachLogCapturer() {
