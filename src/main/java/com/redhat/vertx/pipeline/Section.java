@@ -93,18 +93,13 @@ public class Section implements Step {
                             .subscribe(
                                     next -> completeWhenAllStepsStopped(source),
                                     source::onError,
-                                    () -> completeWhenAllStepsComplete(source)));
-        }
-
-        private void completeWhenAllStepsComplete(MaybeEmitter<JsonObject> source) {
-            source.onComplete();
-            stepExecutors.forEach(StepExecutor::finish);
+                                    source::onComplete));
         }
 
         private void completeWhenAllStepsStopped(MaybeEmitter<JsonObject> source) {
             if (stepExecutors.stream().allMatch(x -> x.stepStatus.stopped)) {
                 logger.fine(() -> Thread.currentThread().getName() + " Completed section " + getName());
-                completeWhenAllStepsComplete(source);
+                source.onComplete();
             }
         }
 
