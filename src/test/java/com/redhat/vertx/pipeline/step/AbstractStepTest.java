@@ -77,9 +77,9 @@ public class AbstractStepTest {
         step.init(engineMock,new JsonObject());
 
         step.execute(doc_id).subscribe(
-                s -> needExceptionFinishTest(s, message, testContext, RuntimeException.class),
-                e -> needExceptionFinishTest(e, message, testContext, RuntimeException.class),
-                () -> needExceptionFinishTest(null,message,testContext, RuntimeException.class) );
+                s -> needExceptionFinishTest(s, message, testContext, MissingParameterException.class),
+                e -> needExceptionFinishTest(e, message, testContext, MissingParameterException.class),
+                () -> needExceptionFinishTest(null,message,testContext, MissingParameterException.class) );
     }
 
     private void needExceptionFinishTest(Object o, String message, VertxTestContext testContext, Class<? extends Throwable> expectedException) {
