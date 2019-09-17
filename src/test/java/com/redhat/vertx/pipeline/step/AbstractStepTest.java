@@ -20,6 +20,7 @@ import io.vertx.reactivex.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.kohsuke.MetaInfServices;
+import org.opentest4j.AssertionFailedError;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -77,9 +78,9 @@ public class AbstractStepTest {
         step.init(engineMock,new JsonObject());
 
         step.execute(doc_id).subscribe(
-                s -> needExceptionFinishTest(s, message, testContext, RuntimeException.class),
-                e -> needExceptionFinishTest(e, message, testContext, RuntimeException.class),
-                () -> needExceptionFinishTest(null,message,testContext, RuntimeException.class) );
+                s -> needExceptionFinishTest(s, message, testContext, MissingParameterException.class),
+                e -> needExceptionFinishTest(e, message, testContext, MissingParameterException.class),
+                () -> needExceptionFinishTest(null,message,testContext, MissingParameterException.class) );
     }
 
     private void needExceptionFinishTest(Object o, String message, VertxTestContext testContext, Class<? extends Throwable> expectedException) {
@@ -118,7 +119,9 @@ public class AbstractStepTest {
 
         step.init(engineMock,new JsonObject().put("timeout","PT0.050S"));
 
-        step.execute(doc_id).timeout(3,TimeUnit.SECONDS).subscribe(
+        step.execute(doc_id)
+                .timeout(3,TimeUnit.SECONDS, source -> source.onError(new AssertionFailedError("Too slow.")))
+                .subscribe(
                 s -> needExceptionFinishTest(s, null, testContext, TimeoutException.class),
                 e -> needExceptionFinishTest(e, null, testContext, TimeoutException.class),
                 () -> needExceptionFinishTest(null,null,testContext, TimeoutException.class) );

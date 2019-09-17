@@ -78,33 +78,36 @@ public class Section implements Step {
             }
 
             // Kick off every step.  If they need to wait, they are responsible for waiting without blocking.
-            EventBus bus = engine.getEventBus();
-            bus.publish(EventBusMessage.SECTION_STARTED, name, new DeliveryOptions().addHeader("uuid", documentId));
 
+            publishSectionEvent(EventBusMessage.SECTION_STARTED);
             logger.fine(() -> Thread.currentThread().getName() + " Executing all steps for section " + getName());
             stepExecutors = steps.stream().map(step -> new StepExecutor(step, documentId)).collect(Collectors.toList());
-            Observable<Message<Object>> documentChanges = bus.consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable()
+            Observable<Message<Object>> documentChanges =
+                    engine.getEventBus().consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable()
                     .filter(delta -> delta.headers().get("uuid").equals(documentId)).publish().autoConnect();
             Observable<StepStatus> allStepsStatusChanges = Observable.mergeDelayError(
                     stepExecutors.stream().map(sx -> sx.executeStep(documentChanges)).collect(Collectors.toList()));
             return Maybe.create(source ->
                     statusChangeSubscription = allStepsStatusChanges.filter(stat -> stat.stopped)
+                            .doOnComplete(() -> publishSectionEvent(EventBusMessage.SECTION_COMPLETED))
+                            .doOnError(t -> publishSectionEvent(EventBusMessage.SECTION_ERRORED))
                             .doAfterTerminate(this::dispose)
                             .subscribe(
                                     next -> completeWhenAllStepsStopped(source),
                                     source::onError,
-                                    () -> completeWhenAllStepsComplete(source)));
+                                    source::onComplete));
         }
 
-        private void completeWhenAllStepsComplete(MaybeEmitter<JsonObject> source) {
-            source.onComplete();
-            stepExecutors.forEach(StepExecutor::finish);
+        private void publishSectionEvent(String message) {
+            EventBus bus = engine.getEventBus();
+            DeliveryOptions documentIdHeader = new DeliveryOptions().addHeader("uuid", documentId);
+            bus.publish(message, name, documentIdHeader);
         }
 
         private void completeWhenAllStepsStopped(MaybeEmitter<JsonObject> source) {
             if (stepExecutors.stream().allMatch(x -> x.stepStatus.stopped)) {
                 logger.fine(() -> Thread.currentThread().getName() + " Completed section " + getName());
-                completeWhenAllStepsComplete(source);
+                source.onComplete();
             }
         }
 

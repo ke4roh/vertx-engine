@@ -8,7 +8,6 @@ import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.*;
-import io.reactivex.disposables.Disposable;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.Vertx;
 
@@ -53,34 +52,13 @@ public abstract class AbstractStep implements Step {
         assert initialized;
         this.vertx=engine.getRxVertx();
         JsonObject env = getEnvironment(docId);
-        return new ReturnValueJsonObjectWrapper().execute(env);
-    }
-
-    private class ReturnValueJsonObjectWrapper {
-        private Disposable executeSlowSubscription;
-
-        private Maybe<JsonObject> execute(JsonObject env) {
-
-            return Maybe.<JsonObject>create(source -> executeSlowSubscription =
-                    executeSlow(env)
+        try {
+            return executeSlow(env)
                     .timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
-                    .subscribe(
-                            rval -> finishSuccessfully(source, rval),
-                            source::onError,
-                            source::onComplete
-                            )).doAfterTerminate(this::dispose);
-        }
-
-        private void finishSuccessfully(MaybeEmitter<JsonObject> source, Object rval) {
-            if (registerTo == null) {
-                source.onComplete();
-            } else {
-                source.onSuccess(new JsonObject().put(registerTo, rval));
-            }
-        }
-
-        private void dispose() {
-            executeSlowSubscription.dispose();
+                    .filter(x -> registerTo != null)
+                    .map(x -> new JsonObject().put(registerTo, x));
+        } catch (RuntimeException e) {
+            return Maybe.error(e);
         }
     }
 
