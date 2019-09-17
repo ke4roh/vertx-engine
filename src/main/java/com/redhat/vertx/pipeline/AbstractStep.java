@@ -54,7 +54,10 @@ public abstract class AbstractStep implements Step {
         this.vertx=engine.getRxVertx();
         JsonObject env = getEnvironment(docId);
         try {
-            return executeSlow(env).filter(x -> registerTo != null).map(x -> new JsonObject().put(registerTo, x));
+            return executeSlow(env)
+                    .timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
+                    .filter(x -> registerTo != null)
+                    .map(x -> new JsonObject().put(registerTo, x));
         } catch (RuntimeException e) {
             return Maybe.error(e);
         }
