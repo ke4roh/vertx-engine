@@ -5,7 +5,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
