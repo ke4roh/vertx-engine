@@ -3,6 +3,7 @@ package com.redhat.vertx;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.redhat.vertx.pipeline.EventBusMessage;
 import com.redhat.vertx.pipeline.Section;
@@ -11,7 +12,8 @@ import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.TemplateProcessor;
 import io.reactivex.Completable;
 import io.reactivex.Single;
-import io.reactivex.SingleEmitter;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.internal.disposables.DisposableHelper;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonObject;
@@ -19,7 +21,6 @@ import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.Vertx;
 import io.vertx.reactivex.core.eventbus.EventBus;
 import io.vertx.reactivex.core.eventbus.Message;
-import io.vertx.reactivex.core.eventbus.MessageConsumer;
 
 /**
  * Entrypoint for execution of a particular pipeline, container for the entire execution system.
@@ -67,19 +68,11 @@ public class Engine extends AbstractVerticle {
 
     @Override
     public Completable rxStart() {
-
         // TODO: This should probably be something else, or something configurable so we can configure it in tests
         // TODO: Also, we don't need multiple of these being deployed
-        return Completable.create(emitter -> {
-            DocumentLogger documentLogger = new DocumentLogger();
-            vertx.rxDeployVerticle(documentLogger, new DeploymentOptions().setWorker(true).setWorkerPoolName("document-logger")).subscribe((s, throwable) -> {
-                if (throwable != null) {
-                    emitter.tryOnError(throwable);
-                } else {
-                    emitter.onComplete();
-                }
-            });
-        }).mergeWith(initComplete);
+        DocumentLogger documentLogger = new DocumentLogger();
+        return vertx.rxDeployVerticle(documentLogger, new DeploymentOptions().setWorker(true)
+                .setWorkerPoolName("document-logger")).ignoreElement().mergeWith(initComplete);
     }
 
     /**
@@ -93,17 +86,20 @@ public class Engine extends AbstractVerticle {
 
         docCache.put(documentId, executionData);
         EventBus bus = getEventBus();
-        bus.publish(EventBusMessage.DOCUMENT_STARTED, documentId);
 
-        MessageConsumer<JsonObject> changeWatcher = bus.consumer(EventBusMessage.CHANGE_REQUEST,
-                                                                 this::processChangeRequest);
+        AtomicReference<Disposable> changeSub = new AtomicReference<>();
 
-        return Single.create(source ->
-                getRxVertx().runOnContext(event -> pipeline.execute(documentId).subscribe(
-                        result -> finishDoc(documentId, bus, changeWatcher, source, null),
-                        err -> finishDoc(documentId, bus, changeWatcher, source, err),
-                        () -> finishDoc(documentId, bus, changeWatcher, source, null)
-                )));
+        return pipeline.execute(documentId)
+                .doOnSubscribe(s-> bus.publish(EventBusMessage.DOCUMENT_STARTED, documentId))
+                .doOnSubscribe(s -> DisposableHelper.set(changeSub,
+                        bus.<JsonObject>consumer(EventBusMessage.CHANGE_REQUEST).toObservable()
+                                .filter(delta -> documentId.equals(delta.headers().get("uuid")))
+                                .doOnNext(this::processChangeRequest)
+                                .subscribe()))
+                .toSingle(docCache.get(documentId))
+                .doOnSuccess(o -> bus.publish(EventBusMessage.DOCUMENT_COMPLETED, documentId))
+                .doOnError(t -> bus.publish(EventBusMessage.DOCUMENT_COMPLETED, documentId))
+                .doOnDispose(() -> { DisposableHelper.dispose(changeSub); docCache.remove(documentId); });
     }
 
     private void processChangeRequest(Message<JsonObject> delta) {
@@ -114,17 +110,6 @@ public class Engine extends AbstractVerticle {
 
         docCache.get(docUuid).mergeIn(body);
         getEventBus().publish(EventBusMessage.DOCUMENT_CHANGED, body.iterator().next().getKey(), deliveryOptions);
-    }
-
-    private void finishDoc(String documentId, EventBus bus, MessageConsumer<JsonObject> changeWatcher, SingleEmitter<JsonObject> source, Throwable err) {
-        bus.publish(EventBusMessage.DOCUMENT_COMPLETED, documentId);
-        JsonObject doc = docCache.remove(documentId);
-        changeWatcher.unregister();
-        if (err == null) {
-            source.onSuccess(doc);
-        } else {
-            source.onError(err);
-        }
     }
 
     public JsonObject getDocument(String documentId) {

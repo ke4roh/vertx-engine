@@ -1,6 +1,7 @@
 package com.redhat.vertx.pipeline;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -78,31 +79,53 @@ public class Section implements Step {
             // Kick off every step, end when all steps are stopped.
             logger.fine(() -> Thread.currentThread().getName() + " Executing all steps for section " + getName());
             stepExecutors = steps.stream().map(StepExecutor::new).collect(Collectors.toList());
+            IncompleteSectionMonitor sectionMonitor = new IncompleteSectionMonitor();
             Observable<Message<Object>> documentChanges =
                     engine.getEventBus().consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable()
                     .filter(delta -> delta.headers().get("uuid").equals(documentId))
-                            .flatMap(objectMessage -> {
-                                if (stepExecutors.stream().noneMatch(x -> x.trying)) {
-                                    return Observable.empty();
-                                } else {
-                                    return Observable.just(objectMessage);
-                                }
-                            })
                             .doOnNext(n -> logger.finest(() -> "Section " + name + " changes flowable next: " + n.body()))
-                            .doOnComplete(() -> logger.finest(() -> "Section " + name + " no executors working."))
-                            .publish().autoConnect();
+                    .doAfterNext(sectionMonitor::doAfterNext);
+
+            Observable<Message<Object>> sectionFinishesIncomplete = sectionMonitor.getSectionFinishesIncomplete();
+
+            Observable<Message<Object>> documentChangesThisSection =
+                    Observable.amb(Arrays.asList(documentChanges,sectionFinishesIncomplete)).publish().autoConnect();
 
             return Completable.mergeDelayError(
-                    stepExecutors.stream().map(sx -> sx.executeStep(documentId,documentChanges))
+                    stepExecutors.stream().map(sx -> sx.executeStep(documentId,documentChangesThisSection))
                             .collect(Collectors.toList())
             )
                     .doOnSubscribe(s -> publishSectionEvent(EventBusMessage.SECTION_STARTED))
                     .doOnComplete(() -> publishSectionEvent(EventBusMessage.SECTION_COMPLETED))
-                    .doOnError(t -> publishSectionEvent(EventBusMessage.SECTION_ERRORED))
-                    .toMaybe();
+                    .doOnError(t -> publishSectionEvent(EventBusMessage.SECTION_ERRORED)).toMaybe();
+
+        }
+
+        private class IncompleteSectionMonitor {
+            private ObservableEmitter<Long> subscriber;
+
+            private Observable<Message<Object>> getSectionFinishesIncomplete() {
+                assert subscriber == null;
+                AtomicLong working = new AtomicLong(stepExecutors.size());
+                return Observable.<Long>create(subscriber -> this.subscriber = subscriber)
+                        .filter(nowWorking -> {
+                            long oldWorking = working.getAndSet(nowWorking);
+                            return oldWorking >= nowWorking && nowWorking > 0;
+                        })
+                        .doOnNext(n -> logger.fine(() -> "Section " + name + " stopped processing with " + n + " steps not done."))
+                        .ignoreElements()
+                        .<Message<Object>>toObservable()
+                        .doOnComplete(() -> logger.fine(() -> "Section " + name + " should close momentarily."))
+                        .publish().autoConnect();
+            }
+
+            void doAfterNext(Object n) {
+                subscriber.onNext(stepExecutors.stream().filter(x -> x.status.working).count());
+            }
         }
 
         private void publishSectionEvent(String message) {
+            logger.finest("Section " + message);
             EventBus bus = engine.getEventBus();
             DeliveryOptions documentIdHeader = new DeliveryOptions().addHeader("uuid", documentId);
             bus.publish(message, name, documentIdHeader);
@@ -110,6 +133,15 @@ public class Section implements Step {
 
     } // SectionExecutor
 
+    enum StepStatus {
+        NASCENT(true), RUNNING(true), RETRYING(false), WRITING(false), COMPLETE(false);
+
+        final boolean working;
+
+        StepStatus(boolean working) {
+            this.working = working;
+        }
+    }
 
     /**
      * The StepExecutor is an adapter between the one-off Step and the stream of statuses it emits after
@@ -120,20 +152,20 @@ public class Section implements Step {
      * - Get results from executing steps into the document
      */
      private class StepExecutor {
-        boolean trying = true;
+        StepStatus status = StepStatus.NASCENT;
         final Step step;
 
         private StepExecutor(Step step) {
             this.step = step;
         }
 
-        private void setTrying(boolean iThinkICan, Supplier<String> message) {
+        private void setStatus(StepStatus newStatus, Supplier<String> message) {
             finest(message);
-            setTrying(iThinkICan);
+            setStatus(newStatus);
         }
 
-        private void setTrying(boolean iThinkICan) {
-            this.trying = iThinkICan;
+        private void setStatus(StepStatus newStatus) {
+            this.status = newStatus;
         }
 
         private void finest(Supplier<String> message) {
@@ -141,37 +173,40 @@ public class Section implements Step {
         }
 
         Completable executeStep(String documentId, Observable<Message<Object>> changes) {
+
             return step.execute(documentId)
+                    .doOnSubscribe(s -> setStatus(StepStatus.RUNNING, () -> " started execution"))
                     .retryWhen(errors -> errors.flatMap(err-> {
-                            setTrying(false);
                             if (err instanceof PotentiallyRecoverableException) {
-                                finest(() -> "failed, retrying " + err);
+                                setStatus(StepStatus.RETRYING, () -> "failed, retrying " + err);
                                 return Flowable.just(err);
                             } else {
-                                finest(() -> "execution halted. Unrecoverable exception " + err);
+                                setStatus(StepStatus.COMPLETE, (() -> "execution halted. Unrecoverable exception " + err));
                                 return Flowable.error(err);
                             }
                         }) // flatMap
                             .zipWith(changes.toFlowable(BackpressureStrategy.LATEST),(err,change) -> change)
-                            .doOnNext(n -> setTrying(true,() -> " proceeding after change " + n.body()))
                             .doOnComplete(() -> finest(() -> "finished retries"))
                     ) // retry
                     .flatMap(returnValue -> {  // Convert the return value into a Maybe which completes when the change is recorded
-                                String register = returnValue.getMap().keySet().stream().findFirst().get();
+                            setStatus(StepStatus.WRITING);
+                            String register = returnValue.getMap().keySet().stream().findFirst().get();
 
-                                Maybe<?> changeRecorded = changes
-                                        .filter(msg -> register.equals(msg.body()))
-                                        .doOnNext(m -> finest(() -> "completed change recording.")).firstElement()
-                                        .doOnComplete(() -> setTrying(false, () -> "success"));
+                            Maybe<?> changeRecorded = changes
+                                    .doOnNext(n -> finest(() -> "considering " + n.body()))
+                                    .filter(msg -> register.equals(msg.body()))
+                                    .doOnNext(n -> finest(() -> "Saw " + n.body() + " registered."))
+                                    .firstElement().ignoreElement().toMaybe()
+                                    .doOnComplete(() -> setStatus(StepStatus.COMPLETE, () -> "first complete"));
 
-                                engine.getEventBus()
-                                        .publish(EventBusMessage.CHANGE_REQUEST, returnValue,
-                                                new DeliveryOptions().addHeader("uuid", documentId));
+                            engine.getEventBus()
+                                    .publish(EventBusMessage.CHANGE_REQUEST, returnValue,
+                                            new DeliveryOptions().addHeader("uuid", documentId));
 
-                                return changeRecorded;
-                            }
+                            return changeRecorded;
+                        }
                     )
-                    .doOnComplete(() -> finest(() -> " completed"))
+                    .doOnComplete(() -> setStatus(StepStatus.COMPLETE, () -> "second complete"))
                     .ignoreElement();
         }
 
