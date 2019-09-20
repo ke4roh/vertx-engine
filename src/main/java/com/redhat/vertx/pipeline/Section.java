@@ -1,13 +1,21 @@
 package com.redhat.vertx.pipeline;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.redhat.vertx.Engine;
-import com.redhat.vertx.pipeline.templates.MissingParameterException;
-import io.reactivex.*;
+import io.reactivex.Completable;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeEmitter;
 import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
 import io.reactivex.disposables.Disposable;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
@@ -19,6 +27,8 @@ import org.kohsuke.MetaInfServices;
 @MetaInfServices(Step.class)
 public class Section implements Step {
     private static final Logger logger = Logger.getLogger(Section.class.getName());
+    private static List<String> RESERVED_WORDS = Arrays.asList("name", "vars", "register", "steps", "class", "timeout");
+
     private Engine engine;
     private String name;
     private List<Step> steps;
@@ -37,19 +47,14 @@ public class Section implements Step {
                     .filter(stepDef -> def.getString("class").equals(stepDef.type().getName()))
                     .findFirst();
         } else {
-            // Get all the names of the classes, on camel case add underscore before
-            // and lower case the simple class name
-            var allStepNames = serviceLoader.stream()
+            var allShortNames = serviceLoader.stream()
                     .collect(Collectors.toMap(
-                            provider -> provider.type().getSimpleName()
-                                    .replaceAll("(?<!^)(\\p{Lu})", "_$1")
-                                    .toLowerCase(Locale.getDefault()),
-                            Optional::of));
+                                provider -> provider.get().getShortName(),
+                                Optional::of));
 
             // Get all the config keys, strip out reserved words
-            // TODO: reserved words should go into a constant
             final var defKeys = def.getMap().keySet();
-            defKeys.removeAll(Arrays.asList("name", "vars", "register", "steps"));
+            defKeys.removeAll(RESERVED_WORDS);
 
             // We had more than the short name of the step, error
             if (defKeys.size() > 1) {
@@ -57,7 +62,7 @@ public class Section implements Step {
             }
 
             // We should only have one entry, use that for the sort name to class mapping
-            stepClass = allStepNames.getOrDefault(defKeys.toArray()[0].toString(), Optional.empty());
+            stepClass = allShortNames.getOrDefault(defKeys.toArray()[0].toString(), Optional.empty());
         }
 
         // Return the class found or error

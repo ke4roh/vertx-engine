@@ -1,5 +1,7 @@
 package com.redhat.vertx.pipeline;
 
+import java.util.Locale;
+
 import com.redhat.vertx.Engine;
 import io.reactivex.Completable;
 import io.reactivex.Maybe;
@@ -16,6 +18,13 @@ import io.vertx.core.json.JsonObject;
  *
  */
 public interface Step {
+    // Get all the names of the classes, on camel case add underscore before
+    // and lower case the simple class name
+    default String getShortName() {
+        return this.getClass().getSimpleName()
+                .replaceAll("(?<!^)(\\p{Lu})", "_$1")
+                .toLowerCase(Locale.getDefault());
+    }
     /**
      * Configure this step after parsing the json and before any execution.  This is for
      * configuration upon parsing the pipeline the first time to set things like the step name.
