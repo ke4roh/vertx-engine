@@ -18,7 +18,14 @@ import io.vertx.core.json.JsonObject;
  *
  */
 public interface Step {
-    // Get all the names of the classes, on camel case add underscore before
+    /**
+     * Returns the short name of the class.
+     *
+     * Example: LongNameClassNameTester becomes long_name_class_name_tester
+     *
+     * @return returns the lower case of the simple class name separated by underscores
+     */
+    // on camel case add underscore before
     // and lower case the simple class name
     default String getShortName() {
         return this.getClass().getSimpleName()
