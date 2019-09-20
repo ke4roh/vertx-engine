@@ -239,7 +239,7 @@ public class Section implements Step {
         }
 
         private void errorToBlockedOrFailed(Throwable err) {
-            if (!subscribedChangeStream.isDisposed() && (err instanceof StepDependencyNotMetException || err instanceof MissingParameterException)) {
+            if (!subscribedChangeStream.isDisposed() && (err instanceof PotentiallyRecoverableException)) {
                 setStepStatus(StepStatus.BLOCKED);
             } else {
                 subscriber.onError(err);
