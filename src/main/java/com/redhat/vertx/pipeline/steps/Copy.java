@@ -1,7 +1,5 @@
 package com.redhat.vertx.pipeline.steps;
 
-import com.hubspot.jinjava.interpret.FatalTemplateErrorsException;
-import com.hubspot.jinjava.interpret.UnknownTokenException;
 import com.redhat.vertx.pipeline.AbstractStep;
 import com.redhat.vertx.pipeline.Step;
 import com.redhat.vertx.pipeline.StepDependencyNotMetException;
