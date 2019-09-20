@@ -101,7 +101,7 @@ public class PipelineIntegrationTest {
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject();
         // TODO make it faster (the sleep is only 1 sec, this should take only slightly longer - for parsing)
-        e.execute(inputDoc).timeout(1500, TimeUnit.MILLISECONDS).blockingGet();
+        e.execute(inputDoc).timeout(2, TimeUnit.SECONDS).blockingGet();
         Thread.sleep(50); // wait for the log to finish writing
         String log = logCapturer.getTestCapturedLog();
         String actualSequence = Arrays.stream(log.split("\n")).map(msg -> {

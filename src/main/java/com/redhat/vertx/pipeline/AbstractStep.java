@@ -51,9 +51,8 @@ public abstract class AbstractStep implements Step {
     public final Maybe<JsonObject> execute(String docId) {
         assert initialized;
         this.vertx=engine.getRxVertx();
-        JsonObject env = getEnvironment(docId);
         try {
-            return executeSlow(env)
+            return Maybe.defer(() -> executeSlow(getEnvironment(docId)))
                     .timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
                     .filter(x -> registerTo != null)
                     .map(x -> new JsonObject().put(registerTo, x));
