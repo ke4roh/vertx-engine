@@ -1,6 +1,6 @@
 package com.redhat.vertx.pipeline;
 
-public class StepDependencyNotMetException extends Exception {
+public class StepDependencyNotMetException extends Exception implements PotentiallyRecoverableException {
     public StepDependencyNotMetException() {
         super();
     }
