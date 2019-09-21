@@ -41,29 +41,22 @@ public class Section implements Step {
         ServiceLoader<Step> serviceLoader = ServiceLoader.load(Step.class);
         final Optional<ServiceLoader.Provider<Step>> stepClass;
 
-        // If the config is using the FQN for the class, load that one up
-        if (def.containsKey("class")) {
-            stepClass = serviceLoader.stream()
-                    .filter(stepDef -> def.getString("class").equals(stepDef.type().getName()))
-                    .findFirst();
-        } else {
-            var allShortNames = serviceLoader.stream()
-                    .collect(Collectors.toMap(
-                                provider -> provider.get().getShortName(),
-                                Optional::of));
+        var allShortNames = serviceLoader.stream()
+                .collect(Collectors.toMap(
+                        provider -> provider.get().getShortName(),
+                        Optional::of));
 
-            // Get all the config keys, strip out reserved words
-            final var defKeys = def.getMap().keySet();
-            defKeys.removeAll(RESERVED_WORDS);
+        // Get all the config keys, strip out reserved words
+        final var defKeys = def.getMap().keySet();
+        defKeys.removeAll(RESERVED_WORDS);
 
-            // We had more than the short name of the step, error
-            if (defKeys.size() > 1) {
-                throw new RuntimeException("Unknown keys in configuration");
-            }
-
-            // We should only have one entry, use that for the sort name to class mapping
-            stepClass = allShortNames.getOrDefault(defKeys.toArray()[0].toString(), Optional.empty());
+        // We had more than the short name of the step, error
+        if (defKeys.size() > 1) {
+            throw new RuntimeException("Unknown keys in configuration");
         }
+
+        // We should only have one entry, use that for the sort name to class mapping
+        stepClass = allShortNames.getOrDefault(defKeys.toArray()[0].toString(), Optional.empty());
 
         // Return the class found or error
         if (stepClass.isPresent()) {
