@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Handler;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -102,7 +103,8 @@ public class PipelineIntegrationTest {
         JsonObject inputDoc = new JsonObject();
         // TODO make it faster (the sleep is only 1 sec, this should take only slightly longer - for parsing)
         e.execute(inputDoc).timeout(2, TimeUnit.SECONDS).blockingGet();
-        Thread.sleep(50); // wait for the log to finish writing
+        Arrays.asList(Logger.getGlobal().getHandlers()).forEach(Handler::flush);
+        Thread.sleep(100); // wait for the log to finish writing
         String log = logCapturer.getTestCapturedLog();
         String actualSequence = Arrays.stream(log.split("\n")).map(msg -> {
             Matcher matcher = fieldSetPattern.matcher(msg);
