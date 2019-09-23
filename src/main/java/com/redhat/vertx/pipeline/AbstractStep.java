@@ -1,6 +1,7 @@
 package com.redhat.vertx.pipeline;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -30,11 +31,16 @@ public abstract class AbstractStep implements Step {
         assert !initialized;
         this.engine = engine;
         name = config.getString("name");
-        stepConfig = config.getJsonObject(getShortName(), new JsonObject());
+        stepConfig = config.getJsonObject(getShortName());
+
+        // Just in case there isn't any additional config for a step
+        stepConfig = Objects.isNull(stepConfig) ? new JsonObject() : stepConfig;
 
         vars = stepConfig.getJsonObject("vars", new JsonObject());
+        vars = Objects.isNull(vars) ? new JsonObject() : vars;
+
         timeout = Duration.parse(config.getString("timeout", "PT5.000S"));
-        registerTo = stepConfig.getString("register");
+        registerTo = config.getString("register");
         initialized = true;
         return Completable.complete();
     }

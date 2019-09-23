@@ -1,12 +1,12 @@
 [
   {
     "name": "m",
+    "register": "c",
     "concat": {
       "vars": {
         "from": "{{doc.x}}",
         "append": "m"
-      },
-      "register": "c"
+      }
     }
   },
   {
@@ -15,9 +15,9 @@
       "vars": {
         "from": "{{doc.c}}",
         "append": "e"
-      },
-      "register": "ca"
-    }
+      }
+    },
+    "register": "ca"
   },
   {
     "name": "o",
@@ -25,9 +25,9 @@
       "vars": {
         "from": "{{doc.ca}}",
         "append": "o"
-      },
-      "register": "cat"
-    }
+      }
+    },
+    "register": "cat"
   },
   {
     "name": "w",
@@ -35,8 +35,8 @@
       "vars": {
         "from": "{{doc.cat}}",
         "append": "w"
-      },
-      "register": "cats"
-    }
+      }
+    },
+    "register": "cats"
   }
 ]

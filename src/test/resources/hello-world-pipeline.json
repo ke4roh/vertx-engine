@@ -4,8 +4,8 @@
     "hello_world_step": {
       "vars": {
         "name": "Jason"
-      },
-      "register": "greetings"
-    }
+      }
+    },
+    "register": "greetings"
   }
 ]

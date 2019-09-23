@@ -4,26 +4,26 @@
     "hello_world_step": {
       "vars": {
         "name": "Jason"
-      },
-      "register": "greetings"
-    }
+      }
+    },
+    "register": "greetings"
   },
   {
     "name":"knockKnock",
     "hello_world_step": {
       "vars": {
         "name": "Banana"
-      },
-      "register": "nuisance"
-    }
+      }
+    },
+    "register": "nuisance"
   },
   {
     "name":"green",
     "hello_world_step": {
       "vars": {
         "name": "Blue"
-      },
-      "register": "rainbow"
-    }
+      }
+    },
+    "register": "rainbow"
   }
 ]

@@ -1,5 +1,7 @@
 package com.redhat.vertx.pipeline.step;
 
+import java.util.Objects;
+
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.Step;
 import io.reactivex.Completable;
@@ -25,8 +27,13 @@ public class HelloWorldStep implements Step {
         stepConfig = config.getJsonObject(getShortName(), new JsonObject());
         var vars = stepConfig.getJsonObject("vars", new JsonObject());
 
+        // Just in case there isn't any additional config for a step
+        if (Objects.isNull(stepConfig)) {
+            stepConfig = new JsonObject();
+        }
+
         name = vars.getString("name", "world");
-        registerTo = stepConfig.getString("register","greeting");
+        registerTo = config.getString("register","greeting");
         return Completable.complete();
     }
 
