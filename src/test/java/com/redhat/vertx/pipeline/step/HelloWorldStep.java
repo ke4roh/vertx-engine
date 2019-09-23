@@ -17,12 +17,16 @@ public class HelloWorldStep implements Step {
     private String stepName;
     private String name;
     private String registerTo;
+    private JsonObject stepConfig;
 
     @Override
     public Completable init(Engine engine, JsonObject config) {
         stepName = config.getString("name","HelloWorld");
-        name = config.getJsonObject("vars",new JsonObject()).getString("name","world");
-        registerTo = config.getString("register","greeting");
+        stepConfig = config.getJsonObject(getShortName(), new JsonObject());
+        var vars = stepConfig.getJsonObject("vars", new JsonObject());
+
+        name = vars.getString("name", "world");
+        registerTo = stepConfig.getString("register","greeting");
         return Completable.complete();
     }
 
@@ -36,4 +40,8 @@ public class HelloWorldStep implements Step {
         return stepName;
     }
 
+    @Override
+    public JsonObject getStepConfig() {
+        return this.stepConfig;
+    }
 }
