@@ -4,7 +4,7 @@
   vars:
     from: "{{doc.q}}"
   register: r
-- name: Copy something else
+- name: Copy a missing field
   class: com.redhat.vertx.pipeline.steps.Copy
   vars:
     from: "{{doc.absent}}"
