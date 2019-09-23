@@ -4,7 +4,7 @@
     vars:
       from: "{{doc.q}}"
     register: r
-- name: Copy something else
+- name: Copy a missing field
   copy:
     vars:
       from: "{{doc.absent}}"

@@ -3,7 +3,6 @@ package com.redhat.vertx;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 
 import com.redhat.vertx.pipeline.EventBusMessage;
 import com.redhat.vertx.pipeline.Section;
@@ -11,9 +10,8 @@ import com.redhat.vertx.pipeline.json.YamlParser;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.TemplateProcessor;
 import io.reactivex.Completable;
+import io.reactivex.Observable;
 import io.reactivex.Single;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.internal.disposables.DisposableHelper;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonObject;
@@ -32,7 +30,7 @@ public class Engine extends AbstractVerticle {
     public static final String DOC_UUID = "__uuid__";
     private Section pipeline;
     private JsonObject systemConfig;
-    private Map<String, JsonObject> docCache = new ConcurrentHashMap<>();
+    private Map<String, ManagedDocument> docCache = new ConcurrentHashMap<>();
     private JinjaTemplateProcessor templateProcessor;
     private Completable initComplete;
 
@@ -81,38 +79,49 @@ public class Engine extends AbstractVerticle {
      * @return A single which will provide the document at the end of execution
      */
     public Single<JsonObject> execute(JsonObject executionData) {
-        String documentId = UUID.randomUUID().toString();
-        executionData.put(DOC_UUID, documentId);
-
-        docCache.put(documentId, executionData);
-        EventBus bus = getEventBus();
-
-        AtomicReference<Disposable> changeSub = new AtomicReference<>();
+        ManagedDocument managedDocument = new ManagedDocument(executionData);
+        String documentId = managedDocument.documentId;
+        docCache.put(documentId, managedDocument);
 
         return pipeline.execute(documentId)
-                .doOnSubscribe(s-> bus.publish(EventBusMessage.DOCUMENT_STARTED, documentId))
-                .doOnSubscribe(s -> DisposableHelper.set(changeSub,
-                        bus.<JsonObject>consumer(EventBusMessage.CHANGE_REQUEST).toObservable()
-                                .filter(delta -> documentId.equals(delta.headers().get("uuid")))
-                                .doOnNext(this::processChangeRequest)
-                                .subscribe()))
-                .toSingle(docCache.get(documentId))
-                .doOnSuccess(o -> bus.publish(EventBusMessage.DOCUMENT_COMPLETED, documentId))
-                .doOnError(t -> bus.publish(EventBusMessage.DOCUMENT_COMPLETED, documentId))
-                .doOnDispose(() -> { DisposableHelper.dispose(changeSub); docCache.remove(documentId); });
-    }
-
-    private void processChangeRequest(Message<JsonObject> delta) {
-        assert delta.body().size() == 1;
-        final var docUuid = delta.headers().get("uuid");
-        final var body = delta.body();
-        final var deliveryOptions = new DeliveryOptions().addHeader("uuid", docUuid);
-
-        docCache.get(docUuid).mergeIn(body);
-        getEventBus().publish(EventBusMessage.DOCUMENT_CHANGED, body.iterator().next().getKey(), deliveryOptions);
+                .doOnSubscribe(s-> getEventBus().publish(EventBusMessage.DOCUMENT_STARTED, documentId))
+                .toSingle(docCache.get(documentId).document)
+                .doOnSuccess(o -> getEventBus().publish(EventBusMessage.DOCUMENT_COMPLETED, documentId))
+                .doOnError(t -> getEventBus().publish(EventBusMessage.DOCUMENT_COMPLETED, documentId))
+                .doOnDispose(() -> docCache.remove(documentId));
     }
 
     public JsonObject getDocument(String documentId) {
-        return docCache.get(documentId);
+        return docCache.get(documentId).document;
+    }
+
+    private class ManagedDocument {
+        final JsonObject document;
+        final String documentId;
+        private final Observable<Message<Object>> completedChanges;
+
+        ManagedDocument(JsonObject document) {
+            this.document = document;
+            documentId = UUID.randomUUID().toString();
+            document.put(DOC_UUID, documentId);
+
+            this.completedChanges = getEventBus().consumer(EventBusMessage.DOCUMENT_CHANGED).toObservable()
+                            .filter(delta -> delta.headers().get("uuid").equals(documentId)).publish().autoConnect();
+        }
+
+
+        Completable update(JsonObject entry) {
+            final var key = entry.size() > 0 ? entry.iterator().next().getKey() : "null";
+            final var deliveryOptions = new DeliveryOptions().addHeader("uuid", documentId);
+
+            synchronized (document) {
+                document.mergeIn(entry);
+            }
+            getEventBus().publish(EventBusMessage.DOCUMENT_CHANGED, key, deliveryOptions);
+            return Completable.complete();
+        }
+    }
+    public Completable updateDocument(String documentId, JsonObject entry) {
+        return docCache.get(documentId).update(entry);
     }
 }
