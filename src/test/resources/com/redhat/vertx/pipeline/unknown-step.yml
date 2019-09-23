@@ -1,8 +1,6 @@
 - name: Sleep - listed first, finish third
   register: dolor
-  foo:
-    vars: { duration: "PT1.0S" }
+  foo: { duration: "PT1.0S" }
 - name: Step two
   register: dolor
-  foo:
-    vars: { duration: "PT1.0S" }
+  foo: { duration: "PT1.0S" }

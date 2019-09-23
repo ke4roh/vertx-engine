@@ -90,7 +90,12 @@ public class Section implements Step {
 
     @Override
     public JsonObject getStepConfig() {
-        return new JsonObject();
+        return this.stepConfig;
+    }
+
+    @Override
+    public JsonObject getVars() {
+        return this.stepConfig;
     }
 
     private void publishSectionEvent(String documentId, String message) {

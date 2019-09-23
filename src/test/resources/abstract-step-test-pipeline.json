@@ -3,39 +3,31 @@
     "name": "m",
     "register": "c",
     "concat": {
-      "vars": {
-        "from": "{{doc.x}}",
-        "append": "m"
-      }
+      "from": "{{doc.x}}",
+      "append": "m"
     }
   },
   {
     "name": "e",
     "concat": {
-      "vars": {
-        "from": "{{doc.c}}",
-        "append": "e"
-      }
+      "from": "{{doc.c}}",
+      "append": "e"
     },
     "register": "ca"
   },
   {
     "name": "o",
     "concat": {
-      "vars": {
-        "from": "{{doc.ca}}",
-        "append": "o"
-      }
+      "from": "{{doc.ca}}",
+      "append": "o"
     },
     "register": "cat"
   },
   {
     "name": "w",
     "concat": {
-      "vars": {
-        "from": "{{doc.cat}}",
-        "append": "w"
-      }
+      "from": "{{doc.cat}}",
+      "append": "w"
     },
     "register": "cats"
   }

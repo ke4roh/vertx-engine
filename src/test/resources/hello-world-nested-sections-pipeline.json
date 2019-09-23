@@ -1,32 +1,26 @@
 [
   {
-    "name":"hello",
+    "name": "hello",
     "hello_world_step": {
-      "vars": {
-        "name": "Jason"
-      }
+      "name": "Jason"
     },
     "register": "greetings"
   },
   {
-    "name":"unusualGreetings",
+    "name": "unusualGreetings",
     "section": {
       "steps": [
         {
           "name": "knockKnock",
           "hello_world_step": {
-            "vars": {
-              "name": "Banana"
-            }
+            "name": "Banana"
           },
           "register": "nuisance"
         },
         {
           "name": "green",
           "hello_world_step": {
-            "vars": {
-              "name": "Blue"
-            }
+            "name": "Blue"
           },
           "register": "rainbow"
         }

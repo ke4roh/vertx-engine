@@ -17,10 +17,10 @@ import io.vertx.reactivex.core.Vertx;
  */
 public abstract class AbstractStep implements Step {
     protected Logger logger = Logger.getLogger(this.getClass().getName());
-    protected JsonObject vars;
     protected Engine engine;
     protected String name;
     protected Vertx vertx;
+    private JsonObject vars;
     private JsonObject stepConfig;
     private Duration timeout;
     private String registerTo;
@@ -36,8 +36,7 @@ public abstract class AbstractStep implements Step {
         // Just in case there isn't any additional config for a step
         stepConfig = Objects.isNull(stepConfig) ? new JsonObject() : stepConfig;
 
-        vars = stepConfig.getJsonObject("vars", new JsonObject());
-        vars = Objects.isNull(vars) ? new JsonObject() : vars;
+        vars = stepConfig; // This is typically correct
 
         timeout = Duration.parse(config.getString("timeout", "PT5.000S"));
         registerTo = config.getString("register");
@@ -122,5 +121,10 @@ public abstract class AbstractStep implements Step {
     @Override
     public JsonObject getStepConfig() {
         return this.stepConfig;
+    }
+
+    @Override
+    public JsonObject getVars() {
+        return this.vars;
     }
 }

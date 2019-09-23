@@ -1,10 +1,8 @@
 [
   {
-    "name":"hello",
+    "name": "hello",
     "hello_world_step": {
-      "vars": {
-        "name": "Jason"
-      }
+      "name": "Jason"
     },
     "register": "greetings"
   }

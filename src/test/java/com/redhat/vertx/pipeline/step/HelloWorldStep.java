@@ -22,7 +22,7 @@ public class HelloWorldStep extends AbstractStep {
     @Override
     public Completable init(Engine engine, JsonObject config) {
         super.init(engine, config);
-        name = vars.getString("name", "world");
+        name = this.getVars().getString("name", "world");
         registerTo = config.getString("register","greeting");
         return Completable.complete();
     }

@@ -1,15 +1,12 @@
 - name: tokenize
   copy:
-    vars:
-      from: '{{ doc.intro|split|tojson }}'
+    from: '{{ doc.intro|split|tojson }}'
   register: words
 - name: first word
   copy:
-    vars:
-      from: '{{ doc.words[0] }}'
+    from: '{{ doc.words[0] }}'
   register: first_word
 - name: fourth word
   copy:
-    vars:
-      from: '{{ doc.words[3] }}'
+    from: '{{ doc.words[3] }}'
   register: fourth_word
