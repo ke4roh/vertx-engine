@@ -1,5 +1,5 @@
 - name: Sleep - listed first, finish third
   sleep:
-  vars: { duration: "PT1.0S" }
-  register: dolor
+    vars: { duration: "PT1.0S" }
+    register: dolor
   foo:

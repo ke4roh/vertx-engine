@@ -1,18 +1,18 @@
 ---
 - name: Sleep - listed first, finish third
-  class: com.redhat.vertx.pipeline.PipelineIntegrationTest$Sleep
-  vars: { duration: "PT1.0S" }
-  register: dolor
+  sleep:
+    vars: { duration: "PT1.0S" }
+    register: dolor
 - name: Copy - should finish first
-  class: com.redhat.vertx.pipeline.steps.Copy
-  vars: { from: "foo" }
-  register: Lorem
+  copy:
+    vars: { from: "foo" }
+    register: Lorem
 - name: Depend - should finish second
-  class: com.redhat.vertx.pipeline.steps.Copy
-  vars: { from: "{{doc.Lorem}}" }
-  register: ipsum
+  copy:
+    vars: { from: "{{doc.Lorem}}" }
+    register: ipsum
 - name: Depend on the sleep - should happen fourth/last
-  class: com.redhat.vertx.pipeline.steps.Copy
-  vars: { from: "{{doc.dolor}}" }
-  register: sit
+  copy:
+    vars: { from: "{{doc.dolor}}" }
+    register: sit
 

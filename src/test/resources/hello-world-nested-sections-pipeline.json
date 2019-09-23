@@ -1,35 +1,36 @@
 [
   {
     "name":"hello",
-    "class":"com.redhat.vertx.pipeline.step.HelloWorldStep",
-    "vars":
-    {
-      "name":"Jason"
-    },
-    "register": "greetings"
+    "hello_world_step": {
+      "vars": {
+        "name": "Jason"
+      },
+      "register": "greetings"
+    }
   },
   {
     "name":"unusualGreetings",
-    "class":"com.redhat.vertx.pipeline.Section",
-    "steps":[
-      {
-        "name":"knockKnock",
-        "class":"com.redhat.vertx.pipeline.step.HelloWorldStep",
-        "vars":
+    "section": {
+      "steps": [
         {
-          "name":"Banana"
+          "name": "knockKnock",
+          "hello_world_step": {
+            "vars": {
+              "name": "Banana"
+            },
+            "register": "nuisance"
+          }
         },
-        "register": "nuisance"
-      },
-      {
-        "name":"green",
-        "class":"com.redhat.vertx.pipeline.step.HelloWorldStep",
-        "vars":
         {
-          "name":"Blue"
-        },
-        "register": "rainbow"
-      }
-    ]
+          "name": "green",
+          "hello_world_step": {
+            "vars": {
+              "name": "Blue"
+            },
+            "register": "rainbow"
+          }
+        }
+      ]
+    }
   }
 ]

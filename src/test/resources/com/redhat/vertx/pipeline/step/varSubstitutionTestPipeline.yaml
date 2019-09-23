@@ -1,15 +1,15 @@
 - name: tokenize
-  class: com.redhat.vertx.pipeline.steps.Copy
-  register: words
-  vars:
-    from: '{{ doc.intro|split|tojson }}'
+  copy:
+    register: words
+    vars:
+      from: '{{ doc.intro|split|tojson }}'
 - name: first word
-  class: com.redhat.vertx.pipeline.steps.Copy
-  register: first_word
-  vars:
-    from: '{{ doc.words[0] }}'
+  copy:
+    register: first_word
+    vars:
+      from: '{{ doc.words[0] }}'
 - name: fourth word
-  class: com.redhat.vertx.pipeline.steps.Copy
-  register: fourth_word
-  vars:
-    from: '{{ doc.words[3] }}'
+  copy:
+    register: fourth_word
+    vars:
+      from: '{{ doc.words[3] }}'

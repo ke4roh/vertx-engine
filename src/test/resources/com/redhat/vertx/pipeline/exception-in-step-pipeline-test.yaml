@@ -1,4 +1,4 @@
 ---
 - name: FNFE
-  class: com.redhat.vertx.pipeline.PipelineIntegrationTest$FNFE
-  register: f
+  f_n_f_e:
+    register: f

@@ -1,42 +1,42 @@
 [
   {
-    "name":"m",
-    "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
-    "vars":
-    {
-      "from":"{{doc.x}}",
-      "append":"m"
-    },
-    "register": "c"
+    "name": "m",
+    "concat": {
+      "vars": {
+        "from": "{{doc.x}}",
+        "append": "m"
+      },
+      "register": "c"
+    }
   },
   {
-    "name":"e",
-    "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
-    "vars":
-    {
-      "from":"{{doc.c}}",
-      "append":"e"
-    },
-    "register": "ca"
+    "name": "e",
+    "concat": {
+      "vars": {
+        "from": "{{doc.c}}",
+        "append": "e"
+      },
+      "register": "ca"
+    }
   },
   {
-    "name":"o",
-    "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
-    "vars":
-    {
-      "from":"{{doc.ca}}",
-      "append":"o"
-    },
-    "register": "cat"
+    "name": "o",
+    "concat": {
+      "vars": {
+        "from": "{{doc.ca}}",
+        "append": "o"
+      },
+      "register": "cat"
+    }
   },
   {
-    "name":"w",
-    "class":"com.redhat.vertx.pipeline.step.AbstractStepTest$Concat",
-    "vars":
-    {
-      "from":"{{doc.cat}}",
-      "append":"w"
-    },
-    "register": "cats"
+    "name": "w",
+    "concat": {
+      "vars": {
+        "from": "{{doc.cat}}",
+        "append": "w"
+      },
+      "register": "cats"
+    }
   }
 ]
