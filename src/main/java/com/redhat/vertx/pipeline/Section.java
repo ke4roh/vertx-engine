@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.logging.Logger;
@@ -32,6 +33,7 @@ public class Section implements Step {
     private Engine engine;
     private String name;
     private List<Step> steps;
+    private JsonObject stepConfig;
 
     public Section() {
 
@@ -76,7 +78,9 @@ public class Section implements Step {
         this.name = config.getString("name","default");
         List<Completable> stepCompletables = new ArrayList<>();
         List<Step> steps = new ArrayList<>();
-        config.getJsonArray("steps", new JsonArray()).forEach( stepConfig -> {
+        this.stepConfig = config.getJsonObject(getShortName(), config);
+
+        stepConfig.getJsonArray("steps", new JsonArray()).forEach( stepConfig -> {
             Step s = buildStep((JsonObject)stepConfig);
             stepCompletables.add(s.init(engine,(JsonObject)stepConfig));
             steps.add(s);
@@ -87,6 +91,11 @@ public class Section implements Step {
 
     public Maybe<JsonObject> execute(String documentId) {
         return new SectionExecutor(documentId).execute();
+    }
+
+    @Override
+    public JsonObject getStepConfig() {
+        return new JsonObject();
     }
 
     private class SectionExecutor {
@@ -138,7 +147,8 @@ public class Section implements Step {
         }
 
         private void dispose() {
-            statusChangeSubscription.dispose();
+            if (Objects.nonNull(statusChangeSubscription))
+                statusChangeSubscription.dispose();
         }
     } // SectionExecutor
 

@@ -55,4 +55,9 @@ public interface Step {
      * @return The name given by the pipeline to describe this step
      */
     public String getName();
+
+    /**
+     * @return Configuration for the step as defined in the pipeline
+     */
+    JsonObject getStepConfig();
 }
