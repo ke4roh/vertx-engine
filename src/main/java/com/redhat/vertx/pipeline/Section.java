@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import com.redhat.vertx.Engine;
+
 import io.reactivex.*;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
@@ -17,9 +18,12 @@ import org.kohsuke.MetaInfServices;
 @MetaInfServices(Step.class)
 public class Section implements Step {
     private static final Logger logger = Logger.getLogger(Section.class.getName());
+    private static List<String> RESERVED_WORDS = Arrays.asList("name", "vars", "register", "steps", "class", "timeout");
+
     private Engine engine;
     private String name;
     private List<Step> steps;
+    private JsonObject stepConfig;
 
     public Section() {
 
@@ -29,34 +33,22 @@ public class Section implements Step {
         ServiceLoader<Step> serviceLoader = ServiceLoader.load(Step.class);
         final Optional<ServiceLoader.Provider<Step>> stepClass;
 
-        // If the config is using the FQN for the class, load that one up
-        if (def.containsKey("class")) {
-            stepClass = serviceLoader.stream()
-                    .filter(stepDef -> def.getString("class").equals(stepDef.type().getName()))
-                    .findFirst();
-        } else {
-            // Get all the names of the classes, on camel case add underscore before
-            // and lower case the simple class name
-            var allStepNames = serviceLoader.stream()
-                    .collect(Collectors.toMap(
-                            provider -> provider.type().getSimpleName()
-                                    .replaceAll("(?<!^)(\\p{Lu})", "_$1")
-                                    .toLowerCase(Locale.getDefault()),
-                            Optional::of));
+        var allShortNames = serviceLoader.stream()
+                .collect(Collectors.toMap(
+                        provider -> provider.get().getShortName(),
+                        Optional::of));
 
-            // Get all the config keys, strip out reserved words
-            // TODO: reserved words should go into a constant
-            final var defKeys = def.getMap().keySet();
-            defKeys.removeAll(Arrays.asList("name", "vars", "register", "steps"));
+        // Get all the config keys, strip out reserved words
+        final var defKeys = def.getMap().keySet();
+        defKeys.removeAll(RESERVED_WORDS);
 
-            // We had more than the short name of the step, error
-            if (defKeys.size() > 1) {
-                throw new RuntimeException("Unknown keys in configuration");
-            }
-
-            // We should only have one entry, use that for the sort name to class mapping
-            stepClass = allStepNames.getOrDefault(defKeys.toArray()[0].toString(), Optional.empty());
+        // We had more than the short name of the step, error
+        if (defKeys.size() > 1) {
+            throw new RuntimeException("Unknown keys in configuration");
         }
+
+        // We should only have one entry, use that for the sort name to class mapping
+        stepClass = allShortNames.getOrDefault(defKeys.toArray()[0].toString(), Optional.empty());
 
         // Return the class found or error
         if (stepClass.isPresent()) {
@@ -76,7 +68,9 @@ public class Section implements Step {
         this.name = config.getString("name","default");
         List<Completable> stepCompletables = new ArrayList<>();
         List<Step> steps = new ArrayList<>();
-        config.getJsonArray("steps", new JsonArray()).forEach( stepConfig -> {
+        this.stepConfig = config.getJsonObject(getShortName(), config);
+
+        stepConfig.getJsonArray("steps", new JsonArray()).forEach( stepConfig -> {
             Step s = buildStep((JsonObject)stepConfig);
             stepCompletables.add(s.init(engine,(JsonObject)stepConfig));
             steps.add(s);
@@ -92,6 +86,11 @@ public class Section implements Step {
                 .doOnComplete(() -> publishSectionEvent(documentId, EventBusMessage.SECTION_COMPLETED))
                 .doOnError(t -> publishSectionEvent(documentId, EventBusMessage.SECTION_ERRORED))
                 .toMaybe();
+    }
+
+    @Override
+    public JsonObject getStepConfig() {
+        return new JsonObject();
     }
 
     private void publishSectionEvent(String documentId, String message) {

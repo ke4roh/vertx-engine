@@ -1,16 +1,16 @@
 - name: Sleep - listed first, finish third
   sleep:
-  vars: { duration: "PT1.0S" }
-  register: dolor
+    vars: { duration: "PT1.0S" }
+    register: dolor
 - name: Copy - should finish first
   copy:
-  vars: { from: "foo" }
-  register: Lorem
+    vars: { from: "foo" }
+    register: Lorem
 - name: Depend - should finish second
   copy:
-  vars: { from: "{{doc.Lorem}}" }
-  register: ipsum
+    vars: { from: "{{doc.Lorem}}" }
+    register: ipsum
 - name: Depend on the sleep - should happen fourth/last
   copy:
-  vars: { from: "{{doc.dolor}}" }
-  register: sit
+    vars: { from: "{{doc.dolor}}" }
+    register: sit

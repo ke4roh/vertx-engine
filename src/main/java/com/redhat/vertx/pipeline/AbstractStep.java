@@ -20,6 +20,7 @@ public abstract class AbstractStep implements Step {
     protected Engine engine;
     protected String name;
     protected Vertx vertx;
+    private JsonObject stepConfig;
     private Duration timeout;
     private String registerTo;
     private boolean initialized;
@@ -29,9 +30,11 @@ public abstract class AbstractStep implements Step {
         assert !initialized;
         this.engine = engine;
         name = config.getString("name");
-        vars = config.getJsonObject("vars", new JsonObject());
+        stepConfig = config.getJsonObject(getShortName(), new JsonObject());
+
+        vars = stepConfig.getJsonObject("vars", new JsonObject());
         timeout = Duration.parse(config.getString("timeout", "PT5.000S"));
-        registerTo = config.getString("register");
+        registerTo = stepConfig.getString("register");
         initialized = true;
         return Completable.complete();
     }
@@ -108,5 +111,10 @@ public abstract class AbstractStep implements Step {
 
     public String getName() {
         return name;
+    }
+
+    @Override
+    public JsonObject getStepConfig() {
+        return this.stepConfig;
     }
 }

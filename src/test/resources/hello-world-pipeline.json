@@ -1,11 +1,11 @@
 [
   {
     "name":"hello",
-    "class":"com.redhat.vertx.pipeline.step.HelloWorldStep",
-    "vars":
-    {
-      "name":"Jason"
-    },
-    "register": "greetings"
+    "hello_world_step": {
+      "vars": {
+        "name": "Jason"
+      },
+      "register": "greetings"
+    }
   }
 ]
