@@ -134,12 +134,18 @@ public class Section implements Step {
             this.documentId = documentId;
         }
 
+        /**
+         * Run the step if it is not running already.
+         * @return A Single indicating the status of the step at completion (if it was not already
+         * running), or at the moment if it was already underway when called.
+         */
         Single<StepStatus> execute() {
             StepStatus newStatus = state.updateAndGet(
                     startingState -> startingState.tryIt?StepStatus.RUNNING:startingState
             );
             if (newStatus != StepStatus.RUNNING) {
-                return Single.just(newStatus);
+                // Only send COMPLETE from the one that actually completes the work.
+                return Single.just(newStatus == StepStatus.COMPLETE?StepStatus.RUNNING:newStatus);
             }
 
             return step.execute(documentId)
