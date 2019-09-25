@@ -8,7 +8,8 @@ import java.util.logging.Logger;
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
-import io.reactivex.*;
+import io.reactivex.Completable;
+import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.Vertx;
 
@@ -58,10 +59,10 @@ public abstract class AbstractStep implements Step {
     @Override
     public final Maybe<JsonObject> execute(String docId) {
         assert initialized;
-        this.vertx=engine.getRxVertx();
+        this.vertx = engine.getRxVertx();
         try {
             return Maybe.defer(() -> executeSlow(getEnvironment(docId)))
-                    .timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
+                    .timeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
                     .filter(x -> registerTo != null)
                     .map(x -> new JsonObject().put(registerTo, x));
         } catch (RuntimeException e) {
@@ -70,10 +71,19 @@ public abstract class AbstractStep implements Step {
     }
 
     protected JsonObject getEnvironment(String docId) {
-         JsonObject vars = this.vars.copy();
-         vars.put("doc",getDocument(docId));
-         vars.put("system", engine.getSystemConfig());
-         return new TemplatedJsonObject(vars,engine.getTemplateProcessor(),"doc", "system");
+        JsonObject vars = this.vars.copy();
+        vars.put("doc", getDocument(docId));
+        vars.put("system", engine.getSystemConfig());
+
+        JsonObject stepAsJson = new JsonObject();
+        stepAsJson.put("name", this.name);
+        stepAsJson.put("shortName", this.getShortName());
+        stepAsJson.put("register", this.registerTo);
+        stepAsJson.put("timeout", this.timeout.toString());
+        stepAsJson.mergeIn(this.getVars());
+
+        vars.put("step", stepAsJson);
+        return new TemplatedJsonObject(vars, engine.getTemplateProcessor(), "doc", "system", "step");
     }
 
     /**
@@ -102,7 +112,6 @@ public abstract class AbstractStep implements Step {
      * @param env A {@link JsonObject} consisting of the variables for this step, plus a special one called "doc"
      *            containing the document being constructed.
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
-
      */
     protected Maybe<Object> executeSlow(JsonObject env) {
         try {
@@ -119,7 +128,7 @@ public abstract class AbstractStep implements Step {
     }
 
     @Override
-    public JsonObject getStepConfig() {
+    public JsonObject getConfig() {
         return this.stepConfig;
     }
 

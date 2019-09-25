@@ -59,7 +59,7 @@ public interface Step {
     /**
      * @return Configuration for the step as defined in the pipeline
      */
-    JsonObject getStepConfig();
+    JsonObject getConfig();
 
     /**
      * @return Variables for the step from pipeline configuration

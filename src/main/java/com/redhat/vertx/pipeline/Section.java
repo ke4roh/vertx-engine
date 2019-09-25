@@ -89,7 +89,7 @@ public class Section implements Step {
     }
 
     @Override
-    public JsonObject getStepConfig() {
+    public JsonObject getConfig() {
         return this.stepConfig;
     }
 
