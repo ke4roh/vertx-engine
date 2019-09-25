@@ -76,7 +76,7 @@ public abstract class AbstractStep implements Step {
         vars.put("system", engine.getSystemConfig());
 
         JsonObject stepAsJson = new JsonObject();
-        stepAsJson.put("name", this.name);
+        stepAsJson.put("name", this.getName());
         stepAsJson.put("shortName", this.getShortName());
         stepAsJson.put("register", this.registerTo);
         stepAsJson.put("timeout", this.timeout.toString());
