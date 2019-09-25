@@ -1,6 +1,7 @@
 package com.redhat.vertx.pipeline;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -16,10 +17,10 @@ import io.vertx.reactivex.core.Vertx;
  */
 public abstract class AbstractStep implements Step {
     protected Logger logger = Logger.getLogger(this.getClass().getName());
-    protected JsonObject vars;
     protected Engine engine;
     protected String name;
     protected Vertx vertx;
+    private JsonObject vars;
     private JsonObject stepConfig;
     private Duration timeout;
     private String registerTo;
@@ -30,11 +31,15 @@ public abstract class AbstractStep implements Step {
         assert !initialized;
         this.engine = engine;
         name = config.getString("name");
-        stepConfig = config.getJsonObject(getShortName(), new JsonObject());
+        stepConfig = config.getJsonObject(getShortName());
 
-        vars = stepConfig.getJsonObject("vars", new JsonObject());
+        // Just in case there isn't any additional config for a step
+        stepConfig = Objects.isNull(stepConfig) ? new JsonObject() : stepConfig;
+
+        vars = stepConfig; // This is typically correct
+
         timeout = Duration.parse(config.getString("timeout", "PT5.000S"));
-        registerTo = stepConfig.getString("register");
+        registerTo = config.getString("register");
         initialized = true;
         return Completable.complete();
     }
@@ -116,5 +121,10 @@ public abstract class AbstractStep implements Step {
     @Override
     public JsonObject getStepConfig() {
         return this.stepConfig;
+    }
+
+    @Override
+    public JsonObject getVars() {
+        return this.vars;
     }
 }

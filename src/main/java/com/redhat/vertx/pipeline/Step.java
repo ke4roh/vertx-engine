@@ -60,4 +60,9 @@ public interface Step {
      * @return Configuration for the step as defined in the pipeline
      */
     JsonObject getStepConfig();
+
+    /**
+     * @return Variables for the step from pipeline configuration
+     */
+    JsonObject getVars();
 }

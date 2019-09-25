@@ -39,7 +39,7 @@ public class Section implements Step {
                         Optional::of));
 
         // Get all the config keys, strip out reserved words
-        final var defKeys = def.getMap().keySet();
+        final var defKeys = new HashSet<>(def.getMap().keySet());
         defKeys.removeAll(RESERVED_WORDS);
 
         // We had more than the short name of the step, error
@@ -90,7 +90,12 @@ public class Section implements Step {
 
     @Override
     public JsonObject getStepConfig() {
-        return new JsonObject();
+        return this.stepConfig;
+    }
+
+    @Override
+    public JsonObject getVars() {
+        return this.stepConfig;
     }
 
     private void publishSectionEvent(String documentId, String message) {

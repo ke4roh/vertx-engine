@@ -1,29 +1,23 @@
 [
   {
-    "name":"hello",
+    "name": "hello",
     "hello_world_step": {
-      "vars": {
-        "name": "Jason"
-      },
-      "register": "greetings"
-    }
+      "name": "Jason"
+    },
+    "register": "greetings"
   },
   {
-    "name":"knockKnock",
+    "name": "knockKnock",
     "hello_world_step": {
-      "vars": {
-        "name": "Banana"
-      },
-      "register": "nuisance"
-    }
+      "name": "Banana"
+    },
+    "register": "nuisance"
   },
   {
-    "name":"green",
+    "name": "green",
     "hello_world_step": {
-      "vars": {
-        "name": "Blue"
-      },
-      "register": "rainbow"
-    }
+      "name": "Blue"
+    },
+    "register": "rainbow"
   }
 ]
