@@ -1,0 +1,5 @@
+---
+- name: step name check
+  register: hello
+  copy:
+    from: 'Hello from the "{{ step.name }}" step'

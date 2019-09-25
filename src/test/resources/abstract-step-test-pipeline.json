@@ -1,42 +1,34 @@
 [
   {
     "name": "m",
+    "register": "c",
     "concat": {
-      "vars": {
-        "from": "{{doc.x}}",
-        "append": "m"
-      },
-      "register": "c"
+      "from": "{{doc.x}}",
+      "append": "m"
     }
   },
   {
     "name": "e",
     "concat": {
-      "vars": {
-        "from": "{{doc.c}}",
-        "append": "e"
-      },
-      "register": "ca"
-    }
+      "from": "{{doc.c}}",
+      "append": "e"
+    },
+    "register": "ca"
   },
   {
     "name": "o",
     "concat": {
-      "vars": {
-        "from": "{{doc.ca}}",
-        "append": "o"
-      },
-      "register": "cat"
-    }
+      "from": "{{doc.ca}}",
+      "append": "o"
+    },
+    "register": "cat"
   },
   {
     "name": "w",
     "concat": {
-      "vars": {
-        "from": "{{doc.cat}}",
-        "append": "w"
-      },
-      "register": "cats"
-    }
+      "from": "{{doc.cat}}",
+      "append": "w"
+    },
+    "register": "cats"
   }
 ]

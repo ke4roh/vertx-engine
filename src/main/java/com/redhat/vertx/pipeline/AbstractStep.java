@@ -1,13 +1,15 @@
 package com.redhat.vertx.pipeline;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
-import io.reactivex.*;
+import io.reactivex.Completable;
+import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.Vertx;
 
@@ -16,10 +18,10 @@ import io.vertx.reactivex.core.Vertx;
  */
 public abstract class AbstractStep implements Step {
     protected Logger logger = Logger.getLogger(this.getClass().getName());
-    protected JsonObject vars;
     protected Engine engine;
     protected String name;
     protected Vertx vertx;
+    private JsonObject vars;
     private JsonObject stepConfig;
     private Duration timeout;
     private String registerTo;
@@ -30,11 +32,15 @@ public abstract class AbstractStep implements Step {
         assert !initialized;
         this.engine = engine;
         name = config.getString("name");
-        stepConfig = config.getJsonObject(getShortName(), new JsonObject());
+        stepConfig = config.getJsonObject(getShortName());
 
-        vars = stepConfig.getJsonObject("vars", new JsonObject());
+        // Just in case there isn't any additional config for a step
+        stepConfig = Objects.isNull(stepConfig) ? new JsonObject() : stepConfig;
+
+        vars = stepConfig; // This is typically correct
+
         timeout = Duration.parse(config.getString("timeout", "PT5.000S"));
-        registerTo = stepConfig.getString("register");
+        registerTo = config.getString("register");
         initialized = true;
         return Completable.complete();
     }
@@ -53,10 +59,10 @@ public abstract class AbstractStep implements Step {
     @Override
     public final Maybe<JsonObject> execute(String docId) {
         assert initialized;
-        this.vertx=engine.getRxVertx();
+        this.vertx = engine.getRxVertx();
         try {
             return Maybe.defer(() -> executeSlow(getEnvironment(docId)))
-                    .timeout(timeout.toMillis(),TimeUnit.MILLISECONDS)
+                    .timeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
                     .filter(x -> registerTo != null)
                     .map(x -> new JsonObject().put(registerTo, x));
         } catch (RuntimeException e) {
@@ -65,10 +71,19 @@ public abstract class AbstractStep implements Step {
     }
 
     protected JsonObject getEnvironment(String docId) {
-         JsonObject vars = this.vars.copy();
-         vars.put("doc",getDocument(docId));
-         vars.put("system", engine.getSystemConfig());
-         return new TemplatedJsonObject(vars,engine.getTemplateProcessor(),"doc", "system");
+        JsonObject vars = this.vars.copy();
+        vars.put("doc", getDocument(docId));
+        vars.put("system", engine.getSystemConfig());
+
+        JsonObject stepAsJson = new JsonObject();
+        stepAsJson.put("name", this.getName());
+        stepAsJson.put("shortName", this.getShortName());
+        stepAsJson.put("register", this.registerTo);
+        stepAsJson.put("timeout", this.timeout.toString());
+        stepAsJson.mergeIn(this.getVars());
+
+        vars.put("step", stepAsJson);
+        return new TemplatedJsonObject(vars, engine.getTemplateProcessor(), "doc", "system", "step");
     }
 
     /**
@@ -97,7 +112,6 @@ public abstract class AbstractStep implements Step {
      * @param env A {@link JsonObject} consisting of the variables for this step, plus a special one called "doc"
      *            containing the document being constructed.
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
-
      */
     protected Maybe<Object> executeSlow(JsonObject env) {
         try {
@@ -114,7 +128,12 @@ public abstract class AbstractStep implements Step {
     }
 
     @Override
-    public JsonObject getStepConfig() {
+    public JsonObject getConfig() {
         return this.stepConfig;
+    }
+
+    @Override
+    public JsonObject getVars() {
+        return this.vars;
     }
 }

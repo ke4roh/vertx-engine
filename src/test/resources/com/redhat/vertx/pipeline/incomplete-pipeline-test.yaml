@@ -1,11 +1,9 @@
 ---
 - name: Copy a thing
+  register: r
   copy:
-    vars:
-      from: "{{doc.q}}"
-    register: r
+    from: "{{doc.q}}"
 - name: Copy a missing field
+  register: x
   copy:
-    vars:
-      from: "{{doc.absent}}"
-    register: x
+    from: "{{doc.absent}}"

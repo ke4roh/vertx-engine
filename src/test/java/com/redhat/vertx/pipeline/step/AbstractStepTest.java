@@ -127,4 +127,14 @@ public class AbstractStepTest {
                 () -> needExceptionFinishTest(null,null,testContext, TimeoutException.class) );
 
     }
+
+    @Test
+    public void testStepAsPartOfEnvironment(Vertx vertx, VertxTestContext testContext) {
+        Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/step/step-part-of-env.yml"));
+        vertx.rxDeployVerticle(e).blockingGet();
+        JsonObject inputDoc = new JsonObject().put("x","");
+        JsonObject newDoc = e.execute(inputDoc).timeout(1, TimeUnit.SECONDS).blockingGet();
+        assertThat(newDoc.getString("hello")).isEqualTo("Hello from the \"step name check\" step");
+        testContext.completeNow();
+    }
 }
