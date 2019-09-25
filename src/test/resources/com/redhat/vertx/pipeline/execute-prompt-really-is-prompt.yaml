@@ -1,14 +1,24 @@
 ---
-- name: Sleep - listed first, finish third
-  register: dolor
-  sleep: { duration: "PT1.0S" }
-- name: Copy - should finish first
-  register: Lorem
-  copy: { from: "foo" }
-- name: Depend - should finish second
-  register: ipsum
-  copy: { from: "{{doc.Lorem}}" }
-- name: Depend on the sleep - should happen fourth/last
-  register: sit
-  copy: { from: "{{doc.dolor}}" }
-
+name: Try executing with some concurrency
+section:
+  steps:
+  - name: First things
+    section:
+      steps:
+      - name: Sleep - listed first, finish third
+        sleep:
+          duration: "PT0.5S"
+        register: ipsum
+      - name: Copy - should finish first
+        copy:
+          from: "foo"
+        register: Lorem
+    concurrent: true
+  - name: Depend - should finish second
+    copy:
+      from: "{{doc.Lorem}}"
+    register: dolor
+  - name: Depend on the sleep - should happen fourth/last
+    copy:
+      from: "{{doc.ipsum}}"
+    register: sit

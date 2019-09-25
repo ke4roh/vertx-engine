@@ -9,7 +9,6 @@ import com.redhat.ResourceUtils;
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.AbstractStep;
 import com.redhat.vertx.pipeline.Step;
-import com.redhat.vertx.pipeline.StepDependencyNotMetException;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
@@ -34,10 +33,10 @@ public class AbstractStepTest {
         Logger logger = Logger.getLogger(this.getClass().getName());
 
         @Override
-        public Object execute(JsonObject doc) throws StepDependencyNotMetException {
+        public Object execute(JsonObject doc) {
             String base = doc.getString("from");
             if (base==null) {
-                throw new StepDependencyNotMetException();
+                throw new MissingParameterException();
             }
             logger.finest(() -> "Step " + name + " executing.");
             return base + doc.getString("append");

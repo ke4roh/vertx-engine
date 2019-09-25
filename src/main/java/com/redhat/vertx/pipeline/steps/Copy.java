@@ -2,7 +2,6 @@ package com.redhat.vertx.pipeline.steps;
 
 import com.redhat.vertx.pipeline.AbstractStep;
 import com.redhat.vertx.pipeline.Step;
-import com.redhat.vertx.pipeline.StepDependencyNotMetException;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
@@ -12,7 +11,7 @@ import org.kohsuke.MetaInfServices;
 public class Copy extends AbstractStep {
 
     @Override
-    public Object execute(JsonObject env) throws StepDependencyNotMetException {
+    public Object execute(JsonObject env) {
         String s = env.getString("from");
         try {
             return Json.decodeValue(s);

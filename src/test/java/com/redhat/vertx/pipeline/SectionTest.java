@@ -19,7 +19,7 @@ class SectionTest {
         final var pipelineDef = ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/short-name-pipeline-unknown-key.yml");
         assertThatExceptionOfType(RuntimeException.class).
                 isThrownBy(() -> section.init(null, new JsonObject(YamlParser.parse(pipelineDef))).blockingGet())
-                .withMessage("Unknown keys in configuration");
+                .withMessage("Unknown keys in configuration: [sleep, foo]");
     }
 
     @Test

@@ -21,7 +21,6 @@ public abstract class AbstractStep implements Step {
     protected Engine engine;
     protected String name;
     protected Vertx vertx;
-    private JsonObject vars;
     private JsonObject stepConfig;
     private Duration timeout;
     private String registerTo;
@@ -100,9 +99,8 @@ public abstract class AbstractStep implements Step {
      * @param env A {@link JsonObject} consisting of the variables for this step, plus a special one called "doc"
      *            containing the document being constructed.
      * @return a JSON-compatible object, JsonObject, JsonArray, or String
-     * @throws StepDependencyNotMetException if this step should be retried later after the document has been changed
      */
-    public Object execute(JsonObject env) throws StepDependencyNotMetException {
+    public Object execute(JsonObject env) {
         return null;
     }
 
@@ -118,7 +116,7 @@ public abstract class AbstractStep implements Step {
             Object rval = execute(env);
             return (rval == null || registerTo == null) ?
                     Maybe.empty() : Maybe.just(rval);
-        } catch (MissingParameterException | StepDependencyNotMetException e) {
+        } catch (Throwable e) {
             return Maybe.error(e);
         }
     }
