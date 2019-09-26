@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
 import com.redhat.ResourceUtils;
 import com.redhat.vertx.DocumentLogger;
 import com.redhat.vertx.Engine;
+import com.redhat.vertx.pipeline.json.YamlParser;
+import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -27,6 +29,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.kohsuke.MetaInfServices;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.fail;
 
 @ExtendWith(VertxExtension.class)
 public class PipelineIntegrationTest {
@@ -71,11 +75,9 @@ public class PipelineIntegrationTest {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/incomplete-pipeline-test.yaml"));
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject().put("q","foo");
-        JsonObject newDoc = e.execute(inputDoc).timeout(1000, TimeUnit.MILLISECONDS).blockingGet();
-        assertThat(newDoc.getString("q")).isEqualTo("foo");
-        assertThat(newDoc.getString("r")).isEqualTo("foo");
-        assertThat(newDoc.containsKey("absent")).isFalse();
-        assertThat(newDoc.containsKey("x")).isFalse();
+        assertThatExceptionOfType(MissingParameterException.class).
+                isThrownBy(() -> e.execute(inputDoc).timeout(1000, TimeUnit.MILLISECONDS).blockingGet())
+                .withMessage("doc.absent");
         testContext.completeNow();
     }
 

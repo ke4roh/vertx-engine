@@ -1,8 +1,7 @@
 package com.redhat.vertx.pipeline;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -18,12 +17,13 @@ import org.kohsuke.MetaInfServices;
 @MetaInfServices(Step.class)
 public class Section implements Step {
     private static final Logger logger = Logger.getLogger(Section.class.getName());
-    private static List<String> RESERVED_WORDS = Arrays.asList("name", "vars", "register", "steps", "class", "timeout");
+    private static List<String> RESERVED_WORDS = Arrays.asList("name", "vars", "register", "steps", "class", "timeout", "concurrent");
 
     private Engine engine;
     private String name;
     private List<Step> steps;
     private JsonObject stepConfig;
+    private Function<Iterable<? extends MaybeSource<JsonObject>>, Flowable<JsonObject>> comboTechnique;
 
     public Section() {
 
@@ -44,7 +44,7 @@ public class Section implements Step {
 
         // We had more than the short name of the step, error
         if (defKeys.size() > 1) {
-            throw new RuntimeException("Unknown keys in configuration");
+            throw new RuntimeException("Unknown keys in configuration: " + defKeys.toString());
         }
 
         // We should only have one entry, use that for the sort name to class mapping
@@ -69,6 +69,8 @@ public class Section implements Step {
         List<Completable> stepCompletables = new ArrayList<>();
         List<Step> steps = new ArrayList<>();
         this.stepConfig = config.getJsonObject(getShortName(), config);
+        comboTechnique = config.getBoolean("concurrent",false)?Maybe::mergeDelayError:Maybe::concat;
+
 
         stepConfig.getJsonArray("steps", new JsonArray()).forEach( stepConfig -> {
             Step s = buildStep((JsonObject)stepConfig);
@@ -80,8 +82,8 @@ public class Section implements Step {
     }
 
     public Maybe<JsonObject> execute(String documentId) {
-        return executeSectionPass(steps.stream().map(s -> new StepExecutor(s,documentId)).collect(Collectors.toList()))
-                .ignoreElements()
+        return comboTechnique.apply(steps.stream().map(s -> s.execute(documentId)).collect(Collectors.toList()))
+                .flatMapCompletable(r -> engine.updateDocument(documentId, r))
                 .doOnSubscribe(s -> publishSectionEvent(documentId, EventBusMessage.SECTION_STARTED))
                 .doOnComplete(() -> publishSectionEvent(documentId, EventBusMessage.SECTION_COMPLETED))
                 .doOnError(t -> publishSectionEvent(documentId, EventBusMessage.SECTION_ERRORED))
@@ -104,78 +106,4 @@ public class Section implements Step {
         DeliveryOptions documentIdHeader = new DeliveryOptions().addHeader("uuid", documentId);
         bus.publish(message, name, documentIdHeader);
     }
-
-    private Flowable<List<Section.StepExecutor>> executeSectionPass(List<StepExecutor> steps) {
-        return Single.mergeDelayError(steps.stream().map(StepExecutor::execute).collect(Collectors.toList()))
-                .filter(s -> s == StepStatus.COMPLETE)
-                .filter(s -> steps.size() > 1)
-                .map(s -> steps.stream().filter(x -> x.state.get().tryIt).collect(Collectors.toList()))
-                .filter(l -> !l.isEmpty() && l.size() < steps.size())
-                .flatMap(this::executeSectionPass)
-                .doOnSubscribe(s -> logger.fine(() -> "Starting section " + name +" execution pass with " + steps.size() + " steps. "
-                 + steps.stream().map(step -> step.step.getName()).collect(Collectors.joining(","))))
-                .doOnComplete(() -> logger.fine(() -> "Finished section " + name +" execution pass with " + steps.size() + " steps. "
-                        + steps.stream().map(step -> step.step.getName()).collect(Collectors.joining(","))));
-    }
-
-    enum StepStatus {
-        NASCENT(true), RUNNING(false), WAITING(true), COMPLETE(false), ERROR(false);
-
-        private final boolean tryIt;
-
-        StepStatus(boolean tryIt) {
-            this.tryIt = tryIt;
-        }
-    } // StepStatus
-
-    private class StepExecutor {
-        private final Step step;
-        private final AtomicReference<StepStatus> state;
-        private final String documentId;
-
-        StepExecutor(Step step, String documentId) {
-            this.step = step;
-            this.state = new AtomicReference<>(StepStatus.NASCENT);
-            this.documentId = documentId;
-        }
-
-        /**
-         * Run the step if it is not running already.
-         * @return A Single indicating the status of the step at completion (if it was not already
-         * running), or at the moment if it was already underway when called.
-         */
-        Single<StepStatus> execute() {
-            StepStatus newStatus = state.updateAndGet(
-                    startingState -> startingState.tryIt?StepStatus.RUNNING:startingState
-            );
-            if (newStatus != StepStatus.RUNNING) {
-                // Only send COMPLETE from the one that actually completes the work.
-                return Single.just(newStatus == StepStatus.COMPLETE?StepStatus.RUNNING:newStatus);
-            }
-
-            return step.execute(documentId)
-                    .flatMap(
-                            Maybe::just,
-                            throwable -> {
-                                if (throwable instanceof PotentiallyRecoverableException) {
-                                    state.set(StepStatus.WAITING);
-                                    return Maybe.empty();
-                                } else {
-                                    state.set(StepStatus.ERROR);
-                                    return Maybe.error(throwable);
-                                }
-                            },
-                            () -> { state.set(StepStatus.COMPLETE); return Maybe.empty(); }
-                    )
-                    .flatMapCompletable(jsonObject -> { // Register the change
-                        assert jsonObject.size() == 1;
-                        return engine.updateDocument(documentId,jsonObject)
-                                .doOnComplete(() -> state.set(StepStatus.COMPLETE))
-                                .timeout(50,TimeUnit.MILLISECONDS);
-                    }).toSingle(state::get)
-                    .doOnSubscribe(sub -> logger.finest(() -> "Step " + step.getName() + " starting"))
-                    .doOnError(t -> logger.fine(() -> "Step " + step.getName() + " errored: " + t.toString()))
-                    .doOnSuccess(stat -> logger.finest(() -> "Step " + step.getName() + " in state " + state));
-        }
-    } // StepExecutor
 }
