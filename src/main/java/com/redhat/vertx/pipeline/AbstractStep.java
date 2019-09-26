@@ -7,7 +7,6 @@ import java.util.logging.Logger;
 
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
-import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.Completable;
 import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
@@ -25,6 +24,7 @@ public abstract class AbstractStep implements Step {
     private Duration timeout;
     private String registerTo;
     private boolean initialized;
+    private JsonObject vars;
 
     @Override
     public Completable init(Engine engine, JsonObject config) {
