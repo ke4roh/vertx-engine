@@ -2,7 +2,9 @@ package com.redhat.vertx.pipeline;
 
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
+import io.reactivex.Completable;
 import io.reactivex.Maybe;
+import io.reactivex.Single;
 import io.vertx.core.json.JsonObject;
 
 import java.time.Duration;
@@ -33,14 +35,23 @@ public class StepExecutor {
             return Maybe.empty();
         }
         String register = stepdef.getString("register");
+        boolean returnSomething = stepdef.containsKey("return");
 
         Maybe<Object> result = step.execute(stepEnvironment)
-                .filter(r -> register != null)
-                .flatMap(r ->
-                        engine
-                                .updateDocument(docId, new JsonObject().put(register,r))
-                                .toSingle(() -> r)
-                                .toMaybe()
+                .filter(r -> register != null || returnSomething )
+                .flatMap(r -> {
+                            Completable updateCompletable = register == null?
+                                    Completable.complete() :
+                                    engine.updateDocument(docId, new JsonObject().put(register, r));
+                            Maybe<Object> returnMaybe = returnSomething ?
+                                    Maybe.just(stepdef.getValue("return")) :
+                                    Maybe.empty();
+                            return updateCompletable.andThen(returnMaybe);
+                        },
+                        Maybe::error,
+                        () -> returnSomething ?
+                                Maybe.just(stepdef.getValue("return")) :
+                                Maybe.empty()
                 );
 
         Duration timeout = parseDuration(stepdef.getString("timeout", null));
