@@ -57,17 +57,15 @@ public class HttpClientIntegrationTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(payload.encode())));
 
-        JsonObject env = new JsonObject();
         String url = "http://localhost:" + port + "/my/resource";
-        env.put("url",url);
 
         Engine engine = new Engine(
                 ResourceUtils.fileContentsFromResource(
                         "com/redhat/vertx/pipeline/step/httpClientIntegrationTest.yaml"
                 ));
         JsonObject doc = new JsonObject().put("url",url);
-        vertx.rxDeployVerticle(engine).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
-        JsonObject d2 = engine.execute(doc).timeout(5, TimeUnit.SECONDS).blockingGet();
+        vertx.rxDeployVerticle(engine).timeout(1, TimeUnit.SECONDS).blockingGet();
+        JsonObject d2 = (JsonObject)engine.execute(doc).timeout(5, TimeUnit.SECONDS).blockingGet();
 
         assertThat(d2.containsKey("response")).isTrue();
         assertThat(d2.getJsonObject("response")).isEqualTo(payload);
@@ -86,9 +84,7 @@ public class HttpClientIntegrationTest {
                 .withHeader("Accept", matching("application/json"))
                 .willReturn(aResponse().withStatus(204)));
 
-        JsonObject env = new JsonObject();
         String url = "http://localhost:" + port + "/my/resource";
-        env.put("url",url);
 
         Engine engine = new Engine(
                 ResourceUtils.fileContentsFromResource(
@@ -96,7 +92,7 @@ public class HttpClientIntegrationTest {
                 ));
         JsonObject doc = new JsonObject().put("url",url);
         vertx.rxDeployVerticle(engine).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
-        JsonObject d2 = engine.execute(doc).timeout(1000, TimeUnit.MILLISECONDS).blockingGet();
+        JsonObject d2 = (JsonObject)engine.execute(doc).timeout(1000, TimeUnit.MILLISECONDS).blockingGet();
 
         assertThat(d2.containsKey("response")).isTrue();
         assertThat(d2.getJsonObject("response")).isNull();
@@ -119,9 +115,7 @@ public class HttpClientIntegrationTest {
                         .withHeader("Content-Type", "text/html")
                         .withBody("<html><head/><body>500 Internal server error</body></html>")));
 
-        JsonObject env = new JsonObject();
         String url = "http://localhost:" + port + "/my/resource";
-        env.put("url",url);
 
         Engine engine = new Engine(
                 ResourceUtils.fileContentsFromResource(

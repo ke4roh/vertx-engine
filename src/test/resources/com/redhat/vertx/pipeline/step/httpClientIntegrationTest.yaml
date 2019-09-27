@@ -2,6 +2,5 @@
 steps:
   - name: Fetch
     http_client:
-      vars:
-         url: "{{doc.url}}"
+       url: "{{doc.url}}"
     register: response

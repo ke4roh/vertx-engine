@@ -4,9 +4,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Duration;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -14,7 +12,6 @@ import java.util.logging.Logger;
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.AbstractStep;
 import com.redhat.vertx.pipeline.Step;
-import com.redhat.vertx.pipeline.StepDependencyNotMetException;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.Completable;
 import io.reactivex.Maybe;
@@ -33,7 +30,7 @@ public class HttpClient extends AbstractStep {
     private static Logger logger = Logger.getLogger(HttpClient.class.getName());
     private static WebClient http;
 
-    public String getUrl(JsonObject env) throws StepDependencyNotMetException, URISyntaxException, MalformedURLException {
+    public String getUrl(JsonObject env) throws URISyntaxException, MalformedURLException {
         String url = env.getString("url");
         if ( url == null ) {
             throw new MissingParameterException("url");
@@ -47,7 +44,7 @@ public class HttpClient extends AbstractStep {
         return super.init(engine, config);
     }
 
-    public HttpRequest<Buffer> getHttpRequest(JsonObject env) throws StepDependencyNotMetException, URISyntaxException, MalformedURLException {
+    public HttpRequest<Buffer> getHttpRequest(JsonObject env) throws URISyntaxException, MalformedURLException {
         // SocketAddress serverAddress = SocketAddress.domainSocketAddress("/var/run/docker.sock");
 
         String url = getUrl(env);
@@ -105,7 +102,7 @@ public class HttpClient extends AbstractStep {
     }
 
     @Override
-    protected Maybe<Object> executeSlow(JsonObject env) {
+    public Maybe<Object> execute(JsonObject env) {
         HttpRequest<Buffer> request;
         try {
             request = getHttpRequest(env);
