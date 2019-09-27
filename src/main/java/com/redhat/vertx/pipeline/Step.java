@@ -43,7 +43,12 @@ public interface Step {
 
     /**
      *
-     * @param environment The environment in which
+     * @param environment The environment against which to execute this step.  Keys include all the
+     *                    parameters named in the dictionary under the step name, "doc" for the document
+     *                    being operated on, "env" for the system environment (as provided to the Engine),
+     *                    "stepdef" for the control parameters for this step including "timeout",
+     *                    "when", "register", "return", and "name".  Most values in this object are
+     *                    processed with the engine's templating engine.  Those inside "doc" and "env" are not.
      * @return A Maybe containing a single entry with the key to which it is to be registered in the document,
      *    or simply complete if there is no artifact to persist as a result of this step.
      */
