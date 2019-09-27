@@ -1,0 +1,7 @@
+name: return something else
+section:
+  steps:
+    - copy:
+        from: "<html><head>Shoulders</head><body>knees</body></html>"
+      register: "html_out"
+return: "{{doc.html_out}}"

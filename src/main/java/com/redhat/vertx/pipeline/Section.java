@@ -17,13 +17,13 @@ import org.kohsuke.MetaInfServices;
 @MetaInfServices(Step.class)
 public class Section implements Step {
     private static final Logger logger = Logger.getLogger(Section.class.getName());
-    private static List<String> RESERVED_WORDS = Arrays.asList("name", "vars", "register", "steps", "class", "timeout", "concurrent");
+    private static List<String> RESERVED_WORDS =
+            Arrays.asList("name", "register", "steps", "timeout", "concurrent", "return", "when");
 
     private Engine engine;
     private String name;
-    private List<Step> steps;
-    private JsonObject stepConfig;
-    private Function<Iterable<? extends MaybeSource<JsonObject>>, Flowable<JsonObject>> comboTechnique;
+    private List<StepExecutor> steps;
+    private Function<Iterable<? extends MaybeSource<Object>>, Flowable<Object>> comboTechnique;
 
     public Section() {
 
@@ -47,7 +47,7 @@ public class Section implements Step {
             throw new RuntimeException("Unknown keys in configuration: " + defKeys.toString());
         }
 
-        // We should only have one entry, use that for the sort name to class mapping
+        // We should only have one entry, use that for the short name to class mapping
         stepClass = allShortNames.getOrDefault(defKeys.toArray()[0].toString(), Optional.empty());
 
         // Return the class found or error
@@ -66,38 +66,30 @@ public class Section implements Step {
     public Completable init(Engine engine, JsonObject config) {
         this.engine = engine;
         this.name = config.getString("name","default");
-        List<Completable> stepCompletables = new ArrayList<>();
-        List<Step> steps = new ArrayList<>();
-        this.stepConfig = config.getJsonObject(getShortName(), config);
-        comboTechnique = config.getBoolean("concurrent",false)?Maybe::mergeDelayError:Maybe::concat;
+        List<Completable> stepInitCompletables = new ArrayList<>();
+        List<StepExecutor> steps = new ArrayList<>();
+        comboTechnique = config.getBoolean("concurrent",false) ?
+                Maybe::mergeDelayError : Maybe::concat;
 
-
-        stepConfig.getJsonArray("steps", new JsonArray()).forEach( stepConfig -> {
+        JsonArray innerSteps = config.getJsonObject(getShortName(), config).getJsonArray("steps", new JsonArray());
+        innerSteps.forEach( stepConfig -> {
             Step s = buildStep((JsonObject)stepConfig);
-            stepCompletables.add(s.init(engine,(JsonObject)stepConfig));
-            steps.add(s);
+            stepInitCompletables.add(s.init(engine,(JsonObject)stepConfig));
+            steps.add(new StepExecutor(engine,s,(JsonObject)stepConfig));
         });
         this.steps=Collections.unmodifiableList(steps);
-        return Completable.merge(stepCompletables);
+        return Completable.merge(stepInitCompletables);
     }
 
-    public Maybe<JsonObject> execute(String documentId) {
-        return comboTechnique.apply(steps.stream().map(s -> s.execute(documentId)).collect(Collectors.toList()))
-                .flatMapCompletable(r -> engine.updateDocument(documentId, r))
+    public Maybe<Object> execute(JsonObject environment) {
+        String documentId = environment.getJsonObject("doc").getString(Engine.DOC_UUID);
+        return comboTechnique.apply(steps.stream().map(s -> s.executeStep(documentId)).collect(Collectors.toList()))
                 .doOnSubscribe(s -> publishSectionEvent(documentId, EventBusMessage.SECTION_STARTED))
                 .doOnComplete(() -> publishSectionEvent(documentId, EventBusMessage.SECTION_COMPLETED))
                 .doOnError(t -> publishSectionEvent(documentId, EventBusMessage.SECTION_ERRORED))
-                .toMaybe();
-    }
-
-    @Override
-    public JsonObject getConfig() {
-        return this.stepConfig;
-    }
-
-    @Override
-    public JsonObject getVars() {
-        return this.stepConfig;
+                .lastElement()
+                .filter(r -> environment.getJsonObject("stepdef").getString("return",null) != null)
+                .map(r -> environment.getJsonObject("stepdef").getString("return"));
     }
 
     private void publishSectionEvent(String documentId, String message) {

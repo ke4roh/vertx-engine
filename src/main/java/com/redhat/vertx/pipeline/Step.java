@@ -43,24 +43,20 @@ public interface Step {
 
     /**
      *
-     * @param documentId the key for the document being built (get it from the engine)
+     * @param environment The environment against which to execute this step.  Keys include all the
+     *                    parameters named in the dictionary under the step name, "doc" for the document
+     *                    being operated on, "env" for the system environment (as provided to the Engine),
+     *                    "stepdef" for the control parameters for this step including "timeout",
+     *                    "when", "register", "return", and "name".  Most values in this object are
+     *                    processed with the engine's templating engine.  Those inside "doc" and "env" are not.
      * @return A Maybe containing a single entry with the key to which it is to be registered in the document,
      *    or simply complete if there is no artifact to persist as a result of this step.
      */
-    public Maybe<JsonObject> execute(String documentId);
+    public Maybe<Object> execute(JsonObject environment);
 
     /**
      * @return The name given by the pipeline to describe this step
      */
     public String getName();
 
-    /**
-     * @return Configuration for the step as defined in the pipeline
-     */
-    JsonObject getConfig();
-
-    /**
-     * @return Variables for the step from pipeline configuration
-     */
-    JsonObject getVars();
 }
