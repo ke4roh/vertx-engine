@@ -83,13 +83,13 @@ public class Section implements Step {
 
     public Maybe<Object> execute(JsonObject environment) {
         String documentId = environment.getJsonObject("doc").getString(Engine.DOC_UUID);
+        JsonObject stepdef = environment.getJsonObject("stepdef");
         return comboTechnique.apply(steps.stream().map(s -> s.executeStep(documentId)).collect(Collectors.toList()))
                 .doOnSubscribe(s -> publishSectionEvent(documentId, EventBusMessage.SECTION_STARTED))
                 .doOnComplete(() -> publishSectionEvent(documentId, EventBusMessage.SECTION_COMPLETED))
                 .doOnError(t -> publishSectionEvent(documentId, EventBusMessage.SECTION_ERRORED))
-                .lastElement()
-                .filter(r -> environment.getJsonObject("stepdef").getString("return",null) != null)
-                .map(r -> environment.getJsonObject("stepdef").getString("return"));
+                .ignoreElements()
+                .toMaybe();
     }
 
     private void publishSectionEvent(String documentId, String message) {

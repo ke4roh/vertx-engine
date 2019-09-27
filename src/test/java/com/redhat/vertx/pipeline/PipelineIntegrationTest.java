@@ -122,7 +122,6 @@ public class PipelineIntegrationTest {
     }
 
     @Test
-    @Disabled
     public void returnASpecificValue(Vertx vertx, VertxTestContext testContext) throws Exception {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/return-a-specific-value-pipeline.yaml"));
         vertx.rxDeployVerticle(e).blockingGet();
