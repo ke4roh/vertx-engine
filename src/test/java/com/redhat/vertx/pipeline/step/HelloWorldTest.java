@@ -20,7 +20,7 @@ public class HelloWorldTest {
     public void checkHelloWorld(Vertx vertx, VertxTestContext testContext) throws Exception {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("hello-world-pipeline.json"));
         vertx.rxDeployVerticle(e).timeout(1,TimeUnit.SECONDS).blockingGet();
-        JsonObject newDoc = e.execute(new JsonObject()).timeout(1,TimeUnit.SECONDS).blockingGet();
+        JsonObject newDoc = (JsonObject) e.execute(new JsonObject()).timeout(1,TimeUnit.SECONDS).blockingGet();
         assertThat(newDoc.getString(Engine.DOC_UUID)).isNotBlank();
         assertThat(newDoc.getString("greetings")).isEqualTo("hello, Jason");
         testContext.completeNow();
@@ -30,7 +30,7 @@ public class HelloWorldTest {
     public void checkHelloWorldMultiSteps(Vertx vertx, VertxTestContext testContext) throws Exception {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("hello-world-many-steps-pipeline.json"));
         vertx.rxDeployVerticle(e).timeout(1,TimeUnit.SECONDS).blockingGet();
-        JsonObject newDoc = e.execute(new JsonObject()).timeout(1,TimeUnit.SECONDS).blockingGet();
+        JsonObject newDoc = (JsonObject) e.execute(new JsonObject()).timeout(1,TimeUnit.SECONDS).blockingGet();
         assertThat(newDoc.getString(Engine.DOC_UUID)).isNotBlank();
         assertThat(newDoc.getString("greetings")).isEqualTo("hello, Jason");
         assertThat(newDoc.getString("nuisance")).isEqualTo("hello, Banana");
@@ -42,7 +42,7 @@ public class HelloWorldTest {
     public void checkHelloWorldNestedSections(Vertx vertx, VertxTestContext testContext) throws Exception {
         Engine e = new Engine(ResourceUtils.fileContentsFromResource("hello-world-nested-sections-pipeline.json"));
         vertx.rxDeployVerticle(e).blockingGet();
-        JsonObject newDoc = e.execute(new JsonObject()).timeout(1, TimeUnit.SECONDS).blockingGet();
+        JsonObject newDoc = (JsonObject) e.execute(new JsonObject()).timeout(1, TimeUnit.SECONDS).blockingGet();
         assertThat(newDoc.getString(Engine.DOC_UUID)).isNotBlank();
         assertThat(newDoc.getString("greetings")).isEqualTo("hello, Jason");
         assertThat(newDoc.getString("nuisance")).isEqualTo("hello, Banana");

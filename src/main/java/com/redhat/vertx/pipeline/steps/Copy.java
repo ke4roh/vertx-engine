@@ -11,7 +11,7 @@ import org.kohsuke.MetaInfServices;
 public class Copy extends AbstractStep {
 
     @Override
-    public Object execute(JsonObject env) {
+    public Object executeFast(JsonObject env) {
         String s = env.getString("from");
         try {
             return Json.decodeValue(s);

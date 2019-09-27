@@ -14,21 +14,15 @@ import org.kohsuke.MetaInfServices;
  */
 @MetaInfServices(Step.class)
 public class HelloWorldStep extends AbstractStep {
-    private String stepName;
-    private String name;
-    private String registerTo;
-    private JsonObject stepConfig;
 
     @Override
     public Completable init(Engine engine, JsonObject config) {
         super.init(engine, config);
-        name = this.getVars().getString("name", "world");
-        registerTo = config.getString("register","greeting");
         return Completable.complete();
     }
 
     @Override
-    public String execute(JsonObject env) {
-        return "hello, " + name;
+    public String executeFast(JsonObject env) {
+        return "hello, " + env.getString("name","world");
     }
 }

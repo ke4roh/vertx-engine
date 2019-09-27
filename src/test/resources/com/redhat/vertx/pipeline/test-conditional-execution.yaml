@@ -1,0 +1,14 @@
+- name: Set up a value
+  copy:
+    from: "foo"
+  register: "bar"
+- name: Do something with the value if it is foo
+  copy:
+    from: "{{doc.bar}} baz"
+  when: "{{doc.bar == \"foo\"}}"
+  register: "bat"
+- name: Don't do this
+  copy:
+    from: "{{doc.bar}} ipsum"
+  when: "{{doc.bar != \"foo\"}}"
+  register: "ball"

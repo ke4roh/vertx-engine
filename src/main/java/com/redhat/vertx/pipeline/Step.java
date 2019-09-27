@@ -43,24 +43,15 @@ public interface Step {
 
     /**
      *
-     * @param documentId the key for the document being built (get it from the engine)
+     * @param environment The environment in which
      * @return A Maybe containing a single entry with the key to which it is to be registered in the document,
      *    or simply complete if there is no artifact to persist as a result of this step.
      */
-    public Maybe<JsonObject> execute(String documentId);
+    public Maybe<Object> execute(JsonObject environment);
 
     /**
      * @return The name given by the pipeline to describe this step
      */
     public String getName();
 
-    /**
-     * @return Configuration for the step as defined in the pipeline
-     */
-    JsonObject getConfig();
-
-    /**
-     * @return Variables for the step from pipeline configuration
-     */
-    JsonObject getVars();
 }

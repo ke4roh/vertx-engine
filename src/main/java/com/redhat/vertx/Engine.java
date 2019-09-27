@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.redhat.vertx.pipeline.EventBusMessage;
 import com.redhat.vertx.pipeline.Section;
+import com.redhat.vertx.pipeline.StepExecutor;
 import com.redhat.vertx.pipeline.json.YamlParser;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.TemplateProcessor;
@@ -28,7 +29,7 @@ import io.vertx.reactivex.core.eventbus.Message;
  */
 public class Engine extends AbstractVerticle {
     public static final String DOC_UUID = "__uuid__";
-    private Section pipeline;
+    private StepExecutor pipeline;
     private JsonObject systemConfig;
     private Map<String, ManagedDocument> docCache = new ConcurrentHashMap<>();
     private JinjaTemplateProcessor templateProcessor;
@@ -41,8 +42,9 @@ public class Engine extends AbstractVerticle {
     public Engine(String pipelineDef, JsonObject systemConfig) {
         this.systemConfig = systemConfig;
         JsonObject jo = new JsonObject(YamlParser.parse(pipelineDef));
-        this.pipeline = new Section();
-        initComplete = pipeline.init(this,jo);
+        Section outerSection = new Section();
+        initComplete = outerSection.init(this, jo);
+        pipeline = new StepExecutor(this, outerSection, jo);
     }
 
     public EventBus getEventBus() {
@@ -76,16 +78,16 @@ public class Engine extends AbstractVerticle {
     /**
      *
      * @param executionData The document to process
-     * @return A single which will provide the document at the end of execution
+     * @return A single which will provide the document (or the outermost section's result) at the end of execution
      */
-    public Single<JsonObject> execute(JsonObject executionData) {
+    public Single<? extends Object> execute(JsonObject executionData) {
         ManagedDocument managedDocument = new ManagedDocument(executionData);
         String documentId = managedDocument.documentId;
         docCache.put(documentId, managedDocument);
 
-        return pipeline.execute(documentId)
+        return pipeline.executeStep(documentId)
                 .doOnSubscribe(s-> getEventBus().publish(EventBusMessage.DOCUMENT_STARTED, documentId))
-                .toSingle(docCache.get(documentId).document)
+                .switchIfEmpty(Single.just(docCache.get(documentId).document))
                 .doOnSuccess(o -> getEventBus().publish(EventBusMessage.DOCUMENT_COMPLETED, documentId))
                 .doOnError(t -> getEventBus().publish(EventBusMessage.DOCUMENT_COMPLETED, documentId))
                 .doOnDispose(() -> docCache.remove(documentId));

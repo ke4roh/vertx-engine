@@ -18,12 +18,14 @@ import com.redhat.vertx.DocumentLogger;
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.YamlParser;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
+import io.reactivex.Completable;
 import io.reactivex.Maybe;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import io.vertx.reactivex.MaybeHelper;
 import io.vertx.reactivex.core.Vertx;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.kohsuke.MetaInfServices;
@@ -38,7 +40,7 @@ public class PipelineIntegrationTest {
     @MetaInfServices(Step.class)
     public static class FNFE extends AbstractStep {
         @Override
-        protected Maybe<Object> executeSlow(JsonObject env) {
+        public Maybe<Object> execute(JsonObject env) {
             return Maybe.error(new FileNotFoundException());
         }
     }
@@ -48,25 +50,11 @@ public class PipelineIntegrationTest {
         static Logger logger = Logger.getLogger(Sleep.class.getName());
 
         @Override
-        protected Maybe<Object> executeSlow(JsonObject env) {
+        public Maybe<Object> execute(JsonObject env) {
             Duration duration = Duration.parse(env.getString("duration"));
-            return MaybeHelper.toMaybe(handler -> {
-                vertx.executeBlocking(fut -> fut.complete(sleep(duration)), handler);
-            });
-        }
-
-        private Object sleep(Duration duration) {
-            try {
-                Thread.sleep(duration.toMillis());
-            } catch (InterruptedException e) {
-                StringWriter sw = new StringWriter();
-                PrintWriter pw = new PrintWriter(sw);
-                e.printStackTrace(pw);
-                pw.flush();
-                logger.warning(sw.toString());
-                throw new RuntimeException(e);
-            }
-            return "Slept " + duration.toString();
+            return Completable.timer(duration.toMillis(),TimeUnit.MILLISECONDS)
+                    .toSingleDefault((Object)"Ding!")
+                    .toMaybe();
         }
     }
 
@@ -126,11 +114,35 @@ public class PipelineIntegrationTest {
         Engine e = new Engine("---\n[]");
         vertx.rxDeployVerticle(e).blockingGet();
         JsonObject inputDoc = new JsonObject();
-        JsonObject doc = e.execute(inputDoc).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
+        JsonObject doc = (JsonObject) e.execute(inputDoc).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
 
         assertThat(doc.size()).isEqualTo(1);
         assertThat(doc.containsKey(Engine.DOC_UUID)).isTrue();
         testContext.completeNow();
     }
 
+    @Test
+    @Disabled
+    public void returnASpecificValue(Vertx vertx, VertxTestContext testContext) throws Exception {
+        Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/return-a-specific-value-pipeline.yaml"));
+        vertx.rxDeployVerticle(e).blockingGet();
+        JsonObject inputDoc = new JsonObject();
+        Object result = e.execute(inputDoc).timeout(1, TimeUnit.SECONDS).blockingGet();
+        assertThat(result).isInstanceOf(String.class);
+        assertThat(result.toString().startsWith("<html>")).isTrue();
+        testContext.completeNow();
+    }
+
+    @Test
+    public void testConditionalExecution(Vertx vertx, VertxTestContext testContext) throws Exception {
+        Engine e = new Engine(ResourceUtils.fileContentsFromResource("com/redhat/vertx/pipeline/test-conditional-execution.yaml"));
+        vertx.rxDeployVerticle(e).blockingGet();
+        JsonObject inputDoc = new JsonObject();
+        Object result = e.execute(inputDoc).timeout(1, TimeUnit.SECONDS).blockingGet();
+        assertThat(result).isInstanceOf(JsonObject.class);
+        JsonObject doc = (JsonObject)result;
+        assertThat(doc.containsKey("bat")).isTrue();
+        assertThat(doc.containsKey("ball")).isFalse();
+        testContext.completeNow();
+    }
 }
