@@ -82,6 +82,7 @@ class SectionTest {
         Engine e = new Engine(pipelineDef,new JsonObject());
         vertx.rxDeployVerticle(e).blockingGet();
         long startTime = System.currentTimeMillis();
+        // 4x so that execution time >> parse time
         for (int i=0;i<4;i++) {
             assertThatExceptionOfType(RuntimeException.class)
                     .isThrownBy(() -> e.execute(new JsonObject()).blockingGet())
