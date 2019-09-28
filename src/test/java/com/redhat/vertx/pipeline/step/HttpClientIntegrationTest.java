@@ -1,5 +1,11 @@
 package com.redhat.vertx.pipeline.step;
 
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Handler;
+import java.util.logging.Logger;
+
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
@@ -17,16 +23,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opentest4j.AssertionFailedError;
 
-import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Handler;
-import java.util.logging.Logger;
-
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.matching;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,14 +39,14 @@ public class HttpClientIntegrationTest {
     private WireMockServer wireMockServer;
 
     @BeforeEach
-    public void setup () {
+    public void setup() {
         wireMockServer = new WireMockRule(wireMockConfig().dynamicPort().dynamicHttpsPort());
         wireMockServer.start();
         WireMock.configureFor("localhost", wireMockServer.port());
     }
 
     @AfterEach
-    public void teardown () {
+    public void teardown() {
         wireMockServer.stop();
     }
 
@@ -63,9 +67,9 @@ public class HttpClientIntegrationTest {
                 ResourceUtils.fileContentsFromResource(
                         "com/redhat/vertx/pipeline/step/httpClientIntegrationTest.yaml"
                 ));
-        JsonObject doc = new JsonObject().put("url",url);
+        JsonObject doc = new JsonObject().put("url", url);
         vertx.rxDeployVerticle(engine).timeout(1, TimeUnit.SECONDS).blockingGet();
-        JsonObject d2 = (JsonObject)engine.execute(doc).timeout(5, TimeUnit.SECONDS).blockingGet();
+        JsonObject d2 = (JsonObject) engine.execute(doc).timeout(5, TimeUnit.SECONDS).blockingGet();
 
         assertThat(d2.containsKey("response")).isTrue();
         assertThat(d2.getJsonObject("response")).isEqualTo(payload);
@@ -121,30 +125,27 @@ public class HttpClientIntegrationTest {
                 ResourceUtils.fileContentsFromResource(
                         "com/redhat/vertx/pipeline/step/httpClientIntegrationTest.yaml"
                 ));
-        JsonObject doc = new JsonObject().put("url",url);
+        JsonObject doc = new JsonObject().put("url", url);
         vertx.rxDeployVerticle(engine).timeout(500, TimeUnit.MILLISECONDS).blockingGet();
 
         AtomicReference<Disposable> docSub = new AtomicReference<>();
-        testContext.checkpoint(1);
 
         DisposableHelper.set(docSub,
-                engine.execute(doc).timeout(10, TimeUnit.SECONDS)
+                engine.execute(doc)
                         .doOnError(t -> {
                             logger.info("Evaluating exception " + t.toString());
-                            if (! (t instanceof HttpClient.HttpResponseStatusException)) {
-                                testContext.failNow(new AssertionFailedError("throwable is the wrong type: " + t.getClass().getName(),t));
-                            }
-                            testContext.checkpoint().flag();
+                            assertThat(t).isNotInstanceOf(HttpClient.HttpResponseStatusException.class);
                         })
-                        .doAfterTerminate(() ->{
+                        .doAfterTerminate(() -> {
                             logger.info("Disposing after terminate");
                             DisposableHelper.dispose(docSub);
                             testContext.completeNow();
                         })
-                        .test().assertSubscribed().await());
+                        .test()
+                        .assertSubscribed());
 
         Arrays.asList(logger.getHandlers()).forEach(Handler::flush);
-        assertThat(testContext.awaitCompletion(5,TimeUnit.SECONDS)).isTrue();
+        assertThat(testContext.awaitCompletion(6, TimeUnit.SECONDS)).isTrue();
         logger.info("Complete.");
     }
 
