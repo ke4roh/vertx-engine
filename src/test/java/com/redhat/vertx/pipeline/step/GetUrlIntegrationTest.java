@@ -11,21 +11,17 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import com.redhat.ResourceUtils;
 import com.redhat.vertx.Engine;
-import com.redhat.vertx.pipeline.steps.HttpClient;
-import io.reactivex.Maybe;
+import com.redhat.vertx.pipeline.steps.BaseHttpClient;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.internal.disposables.DisposableHelper;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import io.vertx.reactivex.core.Vertx;
-import io.vertx.reactivex.ext.unit.TestContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opentest4j.AssertionFailedError;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -38,7 +34,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(VertxExtension.class)
-public class HttpClientIntegrationTest {
+public class GetUrlIntegrationTest {
     private WireMockServer wireMockServer;
 
     @BeforeEach
@@ -84,7 +80,6 @@ public class HttpClientIntegrationTest {
     }
 
     @Test
-    @Disabled // TODO terminates event execution
     public void happyPath204(Vertx vertx, VertxTestContext testContext) throws Exception {
         int port = wireMockServer.port();
         wireMockServer.stubFor(get(urlEqualTo("/my/resource"))
@@ -99,6 +94,7 @@ public class HttpClientIntegrationTest {
                 ));
         JsonObject doc = new JsonObject().put("url",url);
         vertx.rxDeployVerticle(engine).timeout(1, TimeUnit.SECONDS).blockingGet();
+
         AtomicReference<Disposable> docSub = new AtomicReference<>();
         DisposableHelper.set(docSub, engine.execute(doc).timeout(10, TimeUnit.SECONDS)
                 .doOnError(testContext::failNow)
@@ -115,11 +111,11 @@ public class HttpClientIntegrationTest {
 
     private void validate204(Object r, VertxTestContext testContext) {
         JsonObject jo = (JsonObject)r;
-            assertThat(jo.containsKey("response")).isTrue(); // This could well be false because the result is empty
-            assertThat(jo.getJsonObject("response")).isNull();
-            verify(getRequestedFor(urlMatching("/my/resource"))
-                    .withHeader("Accept", matching("application/json")));
-            testContext.completeNow();
+        assertThat(jo.containsKey("response")).isFalse(); // This could well be false because the result is empty
+        assertThat(jo.getJsonObject("response")).isNull();
+        verify(getRequestedFor(urlMatching("/my/resource"))
+                .withHeader("Accept", matching("application/json")));
+        testContext.completeNow();
     }
 
     @Test
@@ -149,7 +145,7 @@ public class HttpClientIntegrationTest {
                 engine.execute(doc)
                         .doOnError(t -> {
                             logger.info("Evaluating exception " + t.toString());
-                            assertThat(t).isNotInstanceOf(HttpClient.HttpResponseStatusException.class);
+                            assertThat(t).isNotInstanceOf(BaseHttpClient.HttpResponseStatusException.class);
                         })
                         .doAfterTerminate(() -> {
                             logger.info("Disposing after terminate");

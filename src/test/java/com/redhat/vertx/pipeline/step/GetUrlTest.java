@@ -2,7 +2,8 @@ package com.redhat.vertx.pipeline.step;
 
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
-import com.redhat.vertx.pipeline.steps.HttpClient;
+import com.redhat.vertx.pipeline.steps.BaseHttpClient;
+import com.redhat.vertx.pipeline.steps.GetUrl;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.vertx.core.json.JsonObject;
@@ -21,13 +22,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(VertxExtension.class)
-public class HttpClientTest {
+public class GetUrlTest {
     @Test
     public void testGetUrl(Vertx vertx, VertxTestContext testContext) throws Exception {
         JsonObject env = new JsonObject();
         String url = "http://www.example.com/";
         env.put("url",url);
-        HttpClient client = new HttpClient();
+        BaseHttpClient client = new GetUrl();
         assertThat(client.getUrl(env)).isEqualTo(url);
 
         env = new TemplatedJsonObject(new JsonObject(), new JinjaTemplateProcessor());
@@ -45,17 +46,17 @@ public class HttpClientTest {
         JsonObject env = new JsonObject();
         String url = "http://www.example.com/";
         env.put("url",url);
-        HttpClient client = new HttpClient();
+        BaseHttpClient client = new GetUrl();
 
         Engine engine = mock(Engine.class);
         when(engine.getRxVertx()).thenReturn(vertx);
         client.init(engine,new JsonObject());
 
-        assertThat(client.getHttpRequest(env)).isNotNull();
+        assertThat(client.request(env)).isNotNull();
 
         env = new TemplatedJsonObject(new JsonObject(), new JinjaTemplateProcessor());
         try {
-            client.getHttpRequest(env);
+            client.request(env);
             fail();
         } catch (MissingParameterException e) {
             // expected
@@ -68,7 +69,7 @@ public class HttpClientTest {
         JsonObject env = new JsonObject();
         String url = "http://www.example.com/";
         env.put("url",url);
-        HttpClient client = new HttpClient();
+        BaseHttpClient client = new GetUrl();
 
         Engine engine = mock(Engine.class);
         when(engine.getRxVertx()).thenReturn(vertx);
@@ -96,7 +97,7 @@ public class HttpClientTest {
         try {
             body = client.processResponse(response);
             fail();
-        } catch (HttpClient.HttpResponseStatusException e) {
+        } catch (BaseHttpClient.HttpResponseStatusException e) {
             // expected
         }
 
