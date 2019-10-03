@@ -1,0 +1,6 @@
+---
+steps:
+  - name: Fetch
+    get_url:
+       url: "{{doc.url}}"
+    register: response

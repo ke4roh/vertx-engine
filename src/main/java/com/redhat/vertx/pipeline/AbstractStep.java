@@ -15,7 +15,6 @@ public abstract class AbstractStep implements Step {
     protected Logger logger = Logger.getLogger(this.getClass().getName());
     protected Engine engine;
     protected String name;
-    protected Vertx vertx;
     private boolean initialized;
 
     @Override
@@ -55,6 +54,8 @@ public abstract class AbstractStep implements Step {
             return Maybe.error(e);
         }
     }
+
+    public Vertx getVertx() { return engine.getRxVertx(); }
 
     public String getName() {
         return name;
