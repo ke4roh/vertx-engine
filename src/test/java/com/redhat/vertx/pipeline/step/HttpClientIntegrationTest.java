@@ -9,9 +9,13 @@ import java.util.logging.Logger;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import com.github.tomakehurst.wiremock.matching.ContentPattern;
+import com.github.tomakehurst.wiremock.matching.EqualToPattern;
+import com.github.tomakehurst.wiremock.matching.MatchResult;
+import com.github.tomakehurst.wiremock.matching.StringValuePattern;
 import com.redhat.ResourceUtils;
 import com.redhat.vertx.Engine;
-import com.redhat.vertx.pipeline.steps.BaseHttpClient;
+import com.redhat.vertx.pipeline.steps.HttpClient;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.internal.disposables.DisposableHelper;
 import io.vertx.core.json.JsonObject;
@@ -23,18 +27,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
-import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.matching;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
-import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(VertxExtension.class)
-public class GetUrlIntegrationTest {
+public class HttpClientIntegrationTest {
     private WireMockServer wireMockServer;
 
     @BeforeEach
@@ -82,15 +80,14 @@ public class GetUrlIntegrationTest {
     @Test
     public void happyPath204(Vertx vertx, VertxTestContext testContext) throws Exception {
         int port = wireMockServer.port();
-        wireMockServer.stubFor(get(urlEqualTo("/my/resource"))
-                .withHeader("Accept", matching("application/json"))
+        wireMockServer.stubFor(post(urlEqualTo("/my/resource"))
                 .willReturn(aResponse().withStatus(204)));
 
         String url = "http://localhost:" + port + "/my/resource";
 
         Engine engine = new Engine(
                 ResourceUtils.fileContentsFromResource(
-                        "com/redhat/vertx/pipeline/step/httpClientIntegrationTest.yaml"
+                        "com/redhat/vertx/pipeline/step/httpPostTest.yaml"
                 ));
         JsonObject doc = new JsonObject().put("url",url);
         vertx.rxDeployVerticle(engine).timeout(1, TimeUnit.SECONDS).blockingGet();
@@ -113,8 +110,10 @@ public class GetUrlIntegrationTest {
         JsonObject jo = (JsonObject)r;
         assertThat(jo.containsKey("response")).isFalse(); // This could well be false because the result is empty
         assertThat(jo.getJsonObject("response")).isNull();
-        verify(getRequestedFor(urlMatching("/my/resource"))
-                .withHeader("Accept", matching("application/json")));
+        verify(postRequestedFor(urlMatching("/my/resource"))
+                .withHeader("Accept", matching("application/json"))
+                .withRequestBody(new EqualToPattern("Shall I compare thee to a summer's day?")));
+
         testContext.completeNow();
     }
 
@@ -145,7 +144,7 @@ public class GetUrlIntegrationTest {
                 engine.execute(doc)
                         .doOnError(t -> {
                             logger.info("Evaluating exception " + t.toString());
-                            assertThat(t).isNotInstanceOf(BaseHttpClient.HttpResponseStatusException.class);
+                            assertThat(t).isNotInstanceOf(HttpClient.HttpResponseStatusException.class);
                         })
                         .doAfterTerminate(() -> {
                             logger.info("Disposing after terminate");
