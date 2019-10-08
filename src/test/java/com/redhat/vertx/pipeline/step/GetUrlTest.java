@@ -2,8 +2,7 @@ package com.redhat.vertx.pipeline.step;
 
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.json.TemplatedJsonObject;
-import com.redhat.vertx.pipeline.steps.BaseHttpClient;
-import com.redhat.vertx.pipeline.steps.GetUrl;
+import com.redhat.vertx.pipeline.steps.HttpClient;
 import com.redhat.vertx.pipeline.templates.JinjaTemplateProcessor;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.vertx.core.json.JsonObject;
@@ -28,7 +27,7 @@ public class GetUrlTest {
         JsonObject env = new JsonObject();
         String url = "http://www.example.com/";
         env.put("url",url);
-        BaseHttpClient client = new GetUrl();
+        HttpClient client = new HttpClient();
         assertThat(client.getUrl(env)).isEqualTo(url);
 
         env = new TemplatedJsonObject(new JsonObject(), new JinjaTemplateProcessor());
@@ -46,7 +45,7 @@ public class GetUrlTest {
         JsonObject env = new JsonObject();
         String url = "http://www.example.com/";
         env.put("url",url);
-        BaseHttpClient client = new GetUrl();
+        HttpClient client = new HttpClient();
 
         Engine engine = mock(Engine.class);
         when(engine.getRxVertx()).thenReturn(vertx);
@@ -69,7 +68,7 @@ public class GetUrlTest {
         JsonObject env = new JsonObject();
         String url = "http://www.example.com/";
         env.put("url",url);
-        BaseHttpClient client = new GetUrl();
+        HttpClient client = new HttpClient();
 
         Engine engine = mock(Engine.class);
         when(engine.getRxVertx()).thenReturn(vertx);
@@ -97,7 +96,7 @@ public class GetUrlTest {
         try {
             body = client.processResponse(response);
             fail();
-        } catch (BaseHttpClient.HttpResponseStatusException e) {
+        } catch (HttpClient.HttpResponseStatusException e) {
             // expected
         }
 

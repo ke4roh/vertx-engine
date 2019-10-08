@@ -1,0 +1,10 @@
+---
+steps:
+  - name: Post
+    http_client:
+       url: "{{doc.url}}"
+       method: POST
+       headers:
+         Content-type: "text/plain"
+       body: "Shall I compare thee to a summer's day?"
+    register: response

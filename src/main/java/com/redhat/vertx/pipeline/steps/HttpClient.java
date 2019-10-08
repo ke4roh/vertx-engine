@@ -1,6 +1,7 @@
 package com.redhat.vertx.pipeline.steps;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
@@ -8,18 +9,25 @@ import java.util.logging.Logger;
 
 import com.redhat.vertx.Engine;
 import com.redhat.vertx.pipeline.AbstractStep;
+import com.redhat.vertx.pipeline.Step;
 import com.redhat.vertx.pipeline.templates.MissingParameterException;
 import io.reactivex.Completable;
 import io.reactivex.Maybe;
+import io.reactivex.Single;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.impl.headers.VertxHttpHeaders;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClientOptions;
+import io.vertx.reactivex.core.MultiMap;
 import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.ext.web.client.HttpRequest;
 import io.vertx.reactivex.ext.web.client.HttpResponse;
 import io.vertx.reactivex.ext.web.client.WebClient;
+import org.kohsuke.MetaInfServices;
 
-public abstract class BaseHttpClient extends AbstractStep {
-    private static Logger logger = Logger.getLogger(BaseHttpClient.class.getName());
+@MetaInfServices(Step.class)
+public class HttpClient extends AbstractStep {
+    private static Logger logger = Logger.getLogger(HttpClient.class.getName());
     private WebClient http;
 
     public String getUrl(JsonObject env) {
@@ -36,7 +44,42 @@ public abstract class BaseHttpClient extends AbstractStep {
         return super.init(engine, config);
     }
 
-    public abstract HttpRequest<Buffer> request(JsonObject env);
+    public HttpMethod getMethod(JsonObject env) {
+        try {
+            return (HttpMethod)HttpMethod.class.getDeclaredField(env.getString("method","GET")).get(null);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException("Invalid HTTP method", e);
+        }
+    }
+
+    private MultiMap getHeaders(JsonObject env) {
+        MultiMap mm = new MultiMap(new VertxHttpHeaders());
+        env.getJsonObject("headers",new JsonObject().put("Accept","application/json"))
+                .forEach(e -> mm.add(e.getKey(),e.getValue().toString()));
+        return mm;
+
+    }
+
+
+    public HttpRequest<Buffer> request(JsonObject env) {
+        String url = getUrl(env);
+        logger.fine(() -> "requesting " + url);
+        URI uri = URI.create(url);
+        String pqf = uri.getPath();
+
+        if (uri.getQuery() != null) {
+            pqf += "?" + uri.getQuery();
+        }
+        if (uri.getFragment() != null) {
+            pqf += "#" + uri.getFragment();
+        }
+
+        return webClient()
+                .request(getMethod(env), uri.getPort(), uri.getHost(), pqf)
+                .putHeaders(getHeaders(env));
+    }
+
+
 
     public Object processResponse(HttpResponse<Buffer> response) throws HttpResponseStatusException {
         switch (response.statusCode()) {
@@ -52,6 +95,7 @@ public abstract class BaseHttpClient extends AbstractStep {
     public static final Map<String, Function<HttpResponse<Buffer>,Object>> decodings;
     static {
         Map<String, Function<HttpResponse<Buffer>,Object>> d = Map.of(
+        "application/octet-stream", HttpResponse::bodyAsBuffer,
         "text/plain",HttpResponse::bodyAsString,
         "text/html",HttpResponse::bodyAsString,
         "application/json", HttpResponse::bodyAsJsonObject, // TODO manage JsonArray and String as appropriate
@@ -86,7 +130,15 @@ public abstract class BaseHttpClient extends AbstractStep {
             return Maybe.error(e);
         }
 
-        return request.rxSend().flatMapMaybe(this::rxProcessResponse);
+        return send(request, env).flatMapMaybe(this::rxProcessResponse);
+    }
+
+    public Single<HttpResponse<Buffer>> send(HttpRequest<Buffer> request, JsonObject env) {
+        if (env.containsKey("body")) {
+            return request.rxSendJson(env.getValue("body"));
+        } else {
+            return request.rxSend();
+        }
     }
 
     protected WebClient webClient() {

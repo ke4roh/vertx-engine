@@ -1,6 +1,6 @@
 ---
 steps:
   - name: Fetch
-    get_url:
+    http_client:
        url: "{{doc.url}}"
     register: response
