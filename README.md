@@ -39,7 +39,8 @@ some standard keys:
 | Key     | Explanation |
 | ---     | ---         |
 | doc     | The data initially provided and all values registered subsequently |
-| system  |System variables (-D java options, environment variables, and config file values) |
+| system  |System variables (-D java options, environment variables, and config file values), as provided to the Engine |
+| stepdef | Parameters provided in the definition of this step, such as timeout, when, and register. |
 
 Values not in system and doc (vars), are evaluated with [Jinja](https://github.com/HubSpot/jinjava/) 
 templating. 
