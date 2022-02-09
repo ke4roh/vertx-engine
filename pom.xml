@@ -19,7 +19,7 @@
         <vertx.version>3.7.1</vertx.version>
         <rxjava2.version>2.2.7</rxjava2.version>
         <junit-jupiter.version>5.4.0</junit-jupiter.version>
-        <jinjava.version>2.5.2</jinjava.version>
+        <jinjava.version>2.5.4</jinjava.version>
         <jmespath.version>0.4.0</jmespath.version>
         <jacoco.version>0.8.4</jacoco.version>
         <repo.token>${env.repo_token}</repo.token>
